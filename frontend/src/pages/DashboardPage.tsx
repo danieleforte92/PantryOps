@@ -1,13 +1,14 @@
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { useAuth, useExpiringItems } from '../hooks/useApi';
+import { useExpiringItems, useLowStock } from '../hooks/useApi';
 import { RecipeFeaturedCard } from '../components/ui/RecipeFeaturedCard';
 import { FridgeWatchPanel } from '../components/ui/FridgeWatchPanel';
+import { LowStockPanel } from '../components/ui/LowStockPanel';
 // import { RecipeCard } from '../components/ui/RecipeCard'; // Keeping this as secondary card if needed, but focusing on Feature Card first.
 
 export default function DashboardPage() {
-    const { user } = useAuth();
     const { data: expiringData } = useExpiringItems();
+    const { data: lowStockData } = useLowStock();
 
     // Mock Recipe Data tailored to PantryPal example
     const featuredRecipe = {
@@ -20,27 +21,6 @@ export default function DashboardPage() {
         imageUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuCDKw2NGL81A4U9dQARPmHNyN1DXUwHpFNWT91cos9jU6TwJOtA03fworuYeP3rZ61gD6p9eE7F6iLnAU39hZmZXRWgYJbLSHPwHSgrLnkgIFh852Dy2_U217ublg6mAAJRln7RO8hXzEmihqQaNRqsJXtECTzFKJi39FsXU-h0q2iXwnvVElLHA8QDsh7P9FoAZIeJZBnwsFAkFy7kfOYCLoUUpQXvJbG8DCmd9CfFJzq4qMzqROOlSH9pBVkbpWBm2-Zu5Dt_Zg"
     };
 
-    const secondaryRecipes = [
-        {
-            title: "Avocado & Spinach Salad",
-            description: "Fresh and healthy salad.",
-            matchPercentage: 100,
-            time: "10 mins • Raw",
-            calories: 120,
-            missingIngredients: [],
-            imageUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuCKFSxaJ18Rre0nI4LYlmHhYEdMUQoWw3oF7uyU-EUzqtfkwbBWkB8toNyBTVMo-Ytsgw1L08TGqGfX2IIlxypuCAgGoU498zFTp2TrqelZm7VLy7DcyHpS_MxSH2WB8-Dli1qM5lHNWF3M3v7xFTMOhQ4slgdAkBI4l-QoXrLn8SJ2MC-jfd9PVxv14KRhuUmtJBcn1L9lVY9U4_92nVq_NGwARHAJJGjmX06tuFYrvGsQh1cT0VEeJpsZw3u5AOB0OXWsCi7Saw"
-        },
-        {
-            title: "Coconut Curry Chicken",
-            description: "Spicy and creamy curry.",
-            matchPercentage: 85,
-            time: "45 mins • Spicy",
-            calories: 550,
-            missingIngredients: ["Coconut Milk"],
-            imageUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuBxFWj8oQmz8qvHzt3ABGQ28KU5dyLzu3n-n7o5smzoY50861z_FpSZ0Xq5DPcbaEf2OgpvsicOmOZ687v-aQWkDoXKeTMbCPeuf_yWphi_4uHcqNnoUv9QSbAI8IXqfBlUyFM77xdZOy7Ki63iXB_Nj6RdGX20qvvp1pRfljnqZBzE3auSkP9iNz6-xXVh6bI82NKslqJDv3aV6fNRuz9_uIyblt5ZznKY3KPk07MM1G_RnWL1F3aTrA41WUTTbFJa6IOZR2l1sA"
-        }
-    ];
-
     // Flatten all expiring items to display in the Fridge Watch panel
     const allExpiringItems = [
         ...(expiringData?.expired ?? []),
@@ -50,6 +30,7 @@ export default function DashboardPage() {
 
     // Calculate count of items expiring within 48 hours (Today + Tomorrow approx)
     const expiringCount = (expiringData?.expired?.length ?? 0) + (expiringData?.today?.length ?? 0);
+    const lowStockItems = lowStockData?.lowStock ?? [];
 
     return (
         <div className="flex flex-col gap-10">
@@ -84,38 +65,21 @@ export default function DashboardPage() {
 
                     <RecipeFeaturedCard {...featuredRecipe} />
 
-                    {/* Secondary Suggestions Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {secondaryRecipes.map((recipe, idx) => (
-                            <div key={idx} className="flex flex-col bg-white dark:bg-surface-dark rounded-2xl shadow-sm border border-gray-200 dark:border-white/5 overflow-hidden hover:shadow-md transition-all duration-300 group">
-                                <div className="h-48 bg-cover bg-center relative" style={{ backgroundImage: `url("${recipe.imageUrl}")` }}>
-                                    <div className="absolute bottom-3 right-3 bg-white/90 dark:bg-black/80 backdrop-blur-sm px-2.5 py-1 rounded-lg flex items-center gap-1.5 text-xs font-bold shadow-sm">
-                                        <span className={recipe.matchPercentage === 100 ? 'text-success' : 'text-primary'}>{recipe.matchPercentage}% Match</span>
-                                    </div>
-                                </div>
-                                <div className="p-5 flex flex-col gap-3 flex-1">
-                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white leading-tight">{recipe.title}</h3>
-                                    {/* Mock Tags */}
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className="bg-gray-100 dark:bg-gray-700 text-gray-500 text-[10px] font-bold px-2 py-0.5 rounded border border-gray-200 dark:border-gray-600">
-                                            {recipe.matchPercentage === 100 ? 'USE SOON' : 'PANTRY STAPLES'}
-                                        </span>
-                                    </div>
-                                    <div className="mt-auto flex items-center justify-between">
-                                        <span className="text-xs text-gray-500 font-medium">{recipe.time}</span>
-                                        <button className="text-primary hover:bg-primary/10 p-2 rounded-full transition-colors">
-                                            <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
+                    {/* Secondary Suggestions Grid Placeholder - Data pending backend AI */}
+                    <div className="p-8 rounded-[2rem] border-2 border-dashed border-gray-100 dark:border-white/5 flex flex-col items-center justify-center text-center bg-gray-50/50 dark:bg-white/2">
+                        <div className="bg-white dark:bg-zinc-800 p-4 rounded-2xl shadow-sm mb-4">
+                            <span className="material-symbols-outlined text-gray-400 text-3xl">Auto_Awesome</span>
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">More recipes coming soon</h3>
+                        <p className="text-sm text-text-muted max-w-xs">We're working on more personalized suggestions based on your pantry stock.</p>
                     </div>
                 </div>
 
                 {/* Right Column: Fridge Watch & Stats (Span 4) */}
-                <div className="xl:col-span-4 flex flex-col gap-8">
+                <div className="xl:col-span-4 flex flex-col gap-6">
                     <FridgeWatchPanel expiringItems={allExpiringItems} />
+
+                    <LowStockPanel items={lowStockItems} />
 
                     {/* Quick Stats */}
                     <div className="bg-primary text-white rounded-3xl p-6 shadow-lg shadow-primary/20 relative overflow-hidden">
@@ -136,7 +100,6 @@ export default function DashboardPage() {
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
     );

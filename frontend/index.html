@@ -7,6 +7,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="BetterGrocy - Modern Home Inventory Management" />
   <title>BetterGrocy</title>
+  <script>
+    (function () {
+      try {
+        const theme = document.cookie.split('; ').find(row => row.startsWith('theme='))?.split('=')[1];
+        if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      } catch (e) { }
+    })();
+  </script>
 
   <!-- Fonts & Icons -->
   <link rel="preconnect" href="https://fonts.googleapis.com">

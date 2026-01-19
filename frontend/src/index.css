@@ -1,14 +1,19 @@
 @import "tailwindcss";
 
 @theme {
+  /* Design Tokens */
   --color-primary: #269c92;
   --color-primary-dark: #1d7c74;
+
   --color-background-light: #fafaf9;
-  --color-background-dark: #181a1b;
+  --color-background-dark: #121415;
+
   --color-surface-light: #ffffff;
-  --color-surface-dark: #22252a;
+  --color-surface-dark: #1e2023;
+
   --color-text-main: #101918;
   --color-text-muted: #578e8a;
+
   --color-danger: #ef4444;
   --color-warning: #f59e0b;
   --color-success: #10b981;
@@ -20,6 +25,12 @@
   --radius-xl: 1.5rem;
   --radius-2xl: 2rem;
 }
+
+/* 
+  Tailwind v4 class-based dark mode strategy.
+  This allows 'dark:' utilities to work when '.dark' is present on <html> or any parent.
+*/
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* Custom Animations */
 @keyframes scan {
@@ -67,25 +78,18 @@
 @layer base {
   html {
     font-family: var(--font-display);
-    /* Default to light mode colors if no class is present */
+    -webkit-tap-highlight-color: transparent;
     background-color: var(--color-background-light);
     color: var(--color-text-main);
   }
 
-  /* Explicit Dark Mode Overrides */
-  :root.dark html,
   html.dark {
     background-color: var(--color-background-dark);
     color: #ffffff;
-    /* Force white text in dark mode */
   }
 
-  /* Ensure text colors map correctly in dark mode */
+  /* Support for secondary text color in dark mode */
   .dark .text-text-main {
     color: #ffffff;
-  }
-
-  .dark .bg-surface-dark {
-    background-color: var(--color-surface-dark);
   }
 }

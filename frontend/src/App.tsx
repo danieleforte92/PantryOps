@@ -9,6 +9,7 @@ const ScanPage = lazy(() => import('./pages/ScanPage'));
 import StockPage from './pages/StockPage';
 import ShoppingPage from './pages/ShoppingPage';
 import RecipePage from './pages/RecipePage';
+import SettingsPage from './pages/SettingsPage';
 
 export default function App() {
     const { user } = useAuth();
@@ -26,6 +27,7 @@ export default function App() {
                     <Route path="/stock" element={<StockPage />} />
                     <Route path="/shopping" element={<ShoppingPage />} />
                     <Route path="/recipes" element={<RecipePage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </Suspense>

@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, Link } from 'react-router-dom';
 import { Home, Package, ScanLine, ShoppingCart, BookOpen } from 'lucide-react';
 import { useAuth } from '../hooks/useApi';
 
@@ -94,15 +94,21 @@ export function Sidebar() {
 
             {/* Bottom Actions */}
             <div className="p-6 border-t border-gray-100 dark:border-white/5">
-                <button className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-text-muted hover:bg-gray-50 dark:hover:bg-white/5 transition-all">
-                    <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
+                <Link
+                    to="/settings"
+                    className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-text-muted hover:bg-gray-50 dark:hover:bg-white/5 transition-all group"
+                >
+                    <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs group-hover:scale-110 transition-transform">
                         {user?.name?.slice(0, 2).toUpperCase() || 'ME'}
                     </div>
-                    <div className="flex flex-col items-start truncate">
-                        <span className="text-sm font-bold text-text-main dark:text-white truncate w-full text-left">{user?.name || 'Utente'}</span>
+                    <div className="flex flex-col items-start truncate flex-1">
+                        <span className="text-sm font-bold text-text-main dark:text-white truncate w-full text-left group-hover:text-primary transition-colors">
+                            {user?.name || 'Utente'}
+                        </span>
                         <span className="text-xs text-text-muted">Pro Member</span>
                     </div>
-                </button>
+                    <span className="material-symbols-outlined text-gray-400 group-hover:text-primary transition-colors">settings</span>
+                </Link>
             </div>
         </aside>
     );

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Save, Trash2, Plus, Minus } from 'lucide-react';
+import { X, Save, Plus, Minus, AlertTriangle, AlertCircle } from 'lucide-react';
 import { usePurchase, useConsume } from '../../hooks/useApi';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -23,6 +23,7 @@ export default function EditStockItemModal({ item, onClose }: EditStockItemModal
     const purchaseMutation = usePurchase();
     const consumeMutation = useConsume();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [adjustmentReason, setAdjustmentReason] = useState<string | null>(null);
 
     const handleSave = async () => {
         if (quantity === item.quantity) {
@@ -54,22 +55,6 @@ export default function EditStockItemModal({ item, onClose }: EditStockItemModal
         }
     };
 
-    const handleDelete = async () => {
-        if (!confirm('Rimuovere completamente dalla dispensa?')) return;
-
-        setIsSubmitting(true);
-        try {
-            await consumeMutation.mutateAsync({
-                productId: item.productId,
-                quantity: item.quantity,
-            });
-            onClose();
-        } catch (error) {
-            console.error('Failed to delete item:', error);
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
 
     const diff = quantity - item.quantity;
 
@@ -79,8 +64,11 @@ export default function EditStockItemModal({ item, onClose }: EditStockItemModal
                 className="w-full max-w-sm flex flex-col bg-white dark:bg-zinc-900 border-gray-200 dark:border-white/10 shadow-xl"
                 onClick={(e) => e.stopPropagation()}
             >
-                <CardHeader className="flex flex-row items-center justify-between pb-4 border-b border-gray-100 dark:border-white/5">
-                    <CardTitle className="text-xl">Modifica Scorta</CardTitle>
+                <CardHeader className="flex flex-row items-center justify-between pb-4 border-b border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-zinc-900/50 rounded-t-2xl">
+                    <CardTitle className="text-xl flex items-center gap-2">
+                        <AlertCircle size={20} className="text-gray-400" />
+                        Rettifica Inventario
+                    </CardTitle>
                     <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full">
                         <X size={20} />
                     </Button>
@@ -139,23 +127,40 @@ export default function EditStockItemModal({ item, onClose }: EditStockItemModal
                         </div>
                     </div>
 
-                    <div className="flex gap-3 pt-2">
+                    {/* Adjustment Reasons (UX Contract) */}
+                    {diff < 0 && (
+                        <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Motivo della rettifica</label>
+                            <div className="flex flex-wrap gap-2">
+                                {['Errore Inventario', 'Scaduto', 'Buttato / Perso', 'Altro'].map(reason => (
+                                    <button
+                                        key={reason}
+                                        onClick={() => setAdjustmentReason(reason)}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${adjustmentReason === reason
+                                            ? 'bg-amber-100 border-amber-300 text-amber-700 dark:bg-amber-900/40 dark:border-amber-700 dark:text-amber-400'
+                                            : 'bg-white dark:bg-zinc-800 border-gray-100 dark:border-white/5 text-gray-500 hover:border-gray-200'
+                                            }`}
+                                    >
+                                        {reason}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="flex items-start gap-2 p-2 bg-gray-50 dark:bg-white/2 rounded-lg border border-dashed border-gray-200 dark:border-white/10">
+                                <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
+                                <p className="text-[10px] text-gray-500 leading-tight">Nota: Questa operazione non verrà conteggiata come utilizzo in cucina.</p>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex pt-2">
                         <Button
-                            variant="destructive"
-                            className="w-12 px-0 bg-red-100 text-red-600 hover:bg-red-200 shadow-none dark:bg-red-900/20 dark:hover:bg-red-900/40"
-                            onClick={handleDelete}
-                            disabled={isSubmitting}
-                        >
-                            <Trash2 size={20} />
-                        </Button>
-                        <Button
-                            className="flex-1 text-base"
+                            className="flex-1 text-base h-12 font-bold shadow-lg shadow-primary/10"
                             onClick={handleSave}
                             disabled={isSubmitting || quantity === item.quantity}
                             isLoading={isSubmitting}
                         >
                             <Save size={18} className="mr-2" />
-                            Salva Modifiche
+                            Salva Rettifica
                         </Button>
                     </div>
                 </CardContent>

@@ -1,9 +1,10 @@
 import { Check, X, Clock, Users, ShoppingCart } from 'lucide-react';
 import { useCurrentStock, useAddShoppingItem } from '../../hooks/useApi';
-import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
+import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { useMemo, useState } from 'react';
+import CookConfirmationModal, { CookItem } from './CookConfirmationModal';
 
 interface Recipe {
     id: string;
@@ -40,8 +41,8 @@ const MOCK_INGREDIENTS: Record<string, { name: string; quantity: string }[]> = {
 
 export default function RecipeDetailModal({ recipe, onClose }: RecipeDetailModalProps) {
     const { data: stockData } = useCurrentStock();
-    const addShoppingItemMutation = useAddShoppingItem();
     const [addedItems, setAddedItems] = useState<Set<string>>(new Set());
+    const [cookingItems, setCookingItems] = useState<CookItem[] | null>(null);
 
     const ingredients = useMemo(() => {
         return recipe.ingredients || MOCK_INGREDIENTS[recipe.id] || [
@@ -77,11 +78,35 @@ export default function RecipeDetailModal({ recipe, onClose }: RecipeDetailModal
 
     const missingCount = ingredientsStatus.filter(i => !i.inStock).length;
 
+    const handleStartCooking = () => {
+        const toCook: CookItem[] = ingredientsStatus
+            .filter(ing => ing.inStock)
+            .map(ing => {
+                // Find actual stock item again to get ID and correct unit
+                const stockItem = stockData?.stock.find(s =>
+                    s.product.name.toLowerCase().includes(ing.name.toLowerCase()) ||
+                    ing.name.toLowerCase().includes(s.product.name.toLowerCase())
+                );
+
+                return {
+                    productId: stockItem!.productId,
+                    name: stockItem!.product.name,
+                    imageUrl: stockItem!.product.imageUrl,
+                    quantity: 1, // Defaulting to 1 unit for simplified MVP cooking
+                    unit: stockItem!.product.stockUnit.abbreviation
+                };
+            });
+
+        if (toCook.length > 0) {
+            setCookingItems(toCook);
+        }
+    };
+
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 animate-in fade-in duration-200" onClick={onClose}>
             <Card
                 className="w-full sm:max-w-2xl flex flex-col bg-white dark:bg-zinc-900 border-gray-200 dark:border-white/10 shadow-2xl h-[90vh] sm:h-auto sm:max-h-[85vh] rounded-b-none sm:rounded-2xl animate-slide-up sm:animate-in sm:zoom-in-95"
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e: React.MouseEvent) => e.stopPropagation()}
             >
                 {/* Header Image */}
                 <div className="relative h-64 shrink-0">
@@ -105,7 +130,7 @@ export default function RecipeDetailModal({ recipe, onClose }: RecipeDetailModal
 
                     <div className="absolute bottom-6 left-6 right-6">
                         <div className="flex flex-wrap gap-2 mb-2">
-                            {recipe.tags?.map(tag => (
+                            {recipe.tags?.map((tag: string) => (
                                 <Badge key={tag} variant="secondary" className="bg-white/20 text-white border-none backdrop-blur-md">{tag}</Badge>
                             ))}
                             {missingCount === 0 ? (
@@ -181,10 +206,24 @@ export default function RecipeDetailModal({ recipe, onClose }: RecipeDetailModal
                 </div>
 
                 <div className="p-4 border-t border-gray-100 dark:border-white/5 bg-white dark:bg-zinc-900 shrink-0 sm:rounded-b-2xl">
-                    <Button className="w-full h-14 text-lg font-bold shadow-xl shadow-primary/20">
+                    <Button
+                        className="w-full h-14 text-lg font-bold shadow-xl shadow-primary/20"
+                        onClick={handleStartCooking}
+                        disabled={ingredientsStatus.filter(i => i.inStock).length === 0}
+                    >
                         Inizia a Cucinare
                     </Button>
                 </div>
+
+                {/* Cook Confirmation Modal */}
+                {cookingItems && (
+                    <CookConfirmationModal
+                        items={cookingItems}
+                        onClose={() => setCookingItems(null)}
+                        onSuccess={() => onClose()}
+                        title={`Cucina: ${recipe.title}`}
+                    />
+                )}
             </Card>
         </div>
     );

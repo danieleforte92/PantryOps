@@ -6,6 +6,7 @@ import { Card } from '../components/ui/Card';
 import { StockStatusBadge, type StockStatus } from '../components/ui/StockStatusBadge';
 import { differenceInDays, parseISO } from 'date-fns';
 import EditStockItemModal from '../components/modals/EditStockItemModal';
+import CookConfirmationModal, { CookItem } from '../components/modals/CookConfirmationModal';
 
 export default function StockPage() {
     const { data, isLoading } = useCurrentStock();
@@ -16,6 +17,7 @@ export default function StockPage() {
     const [processingId, setProcessingId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [editingItem, setEditingItem] = useState<StockItem | null>(null);
+    const [cookingItems, setCookingItems] = useState<CookItem[] | null>(null);
 
     const stockItems = useMemo(() => {
         if (!data?.stock) return [];
@@ -24,16 +26,15 @@ export default function StockPage() {
         );
     }, [data, searchTerm]);
 
-    const handleConsume = async (e: React.MouseEvent, productId: string, amount: number = 1) => {
+    const handleConsumeTrigger = (e: React.MouseEvent, item: StockItem) => {
         e.stopPropagation();
-        setProcessingId(`consume-${productId}`);
-        try {
-            await consumeMutation.mutateAsync({ productId, quantity: amount });
-        } catch (error) {
-            console.error('Consume failed:', error);
-        } finally {
-            setProcessingId(null);
-        }
+        setCookingItems([{
+            productId: item.productId,
+            name: item.product.name,
+            imageUrl: item.product.imageUrl,
+            quantity: 1,
+            unit: item.product.stockUnit.abbreviation
+        }]);
     };
 
     const handleIncrement = async (e: React.MouseEvent, productId: string) => {
@@ -159,7 +160,8 @@ export default function StockPage() {
                                     <div className="flex items-center gap-1 bg-gray-50 dark:bg-zinc-800 rounded-xl p-1" onClick={e => e.stopPropagation()}>
                                         <button
                                             className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white dark:hover:bg-zinc-700 text-gray-600 dark:text-gray-400 transition-all disabled:opacity-50"
-                                            onClick={(e) => handleConsume(e, item.productId, 1)}
+                                            onClick={(e) => handleConsumeTrigger(e, item)}
+                                            title="Cucina o Usa questo prodotto"
                                             disabled={processingId === `consume-${item.productId}` || item.quantity <= 0}
                                         >
                                             {processingId === `consume-${item.productId}` ? (
@@ -197,6 +199,14 @@ export default function StockPage() {
                 <EditStockItemModal
                     item={editingItem}
                     onClose={() => setEditingItem(null)}
+                />
+            )}
+
+            {/* Cook Confirmation Modal */}
+            {cookingItems && (
+                <CookConfirmationModal
+                    items={cookingItems}
+                    onClose={() => setCookingItems(null)}
                 />
             )}
         </div>

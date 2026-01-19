@@ -72,7 +72,7 @@ model Location {
   isFreezer   Boolean  @default(false)
   createdAt   DateTime @default(now())
 
-  household       Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  household       Household  @relation(fields: [householdId], references: [id], onDelete: Cascade)
   stockLots       StockLot[]
   defaultProducts Product[]
 
@@ -103,6 +103,12 @@ model Product {
   shelfLifeDays       Int?
   openedShelfLifeDays Int?
 
+  // Health & Sustainability (Enriched from OFF)
+  nutriscore String?
+  novaGroup  Int?
+  ecoScore   String?
+  categories String[] @default([])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -111,11 +117,11 @@ model Product {
   purchaseUnit    Unit      @relation("PurchaseUnit", fields: [purchaseUnitId], references: [id])
   defaultLocation Location? @relation(fields: [defaultLocationId], references: [id])
 
-  barcodes       Barcode[]
-  stockLots      StockLot[]
-  transactions   StockTransaction[]
-  currentStock   CurrentStock?
-  shoppingItems  ShoppingListItem[]
+  barcodes      Barcode[]
+  stockLots     StockLot[]
+  transactions  StockTransaction[]
+  currentStock  CurrentStock?
+  shoppingItems ShoppingListItem[]
 
   @@unique([householdId, name])
 }
@@ -134,14 +140,14 @@ model Barcode {
 // Physical lot - NO quantity column!
 // Quantity is derived from transactions
 model StockLot {
-  id          String    @id @default(uuid())
+  id          String @id @default(uuid())
   householdId String
   productId   String
   locationId  String
-  
+
   bestBeforeDate DateTime?
   purchasedAt    DateTime  @default(now())
-  
+
   createdAt DateTime @default(now())
 
   household    Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
@@ -156,14 +162,14 @@ model StockLot {
 
 // Immutable transaction log - SOURCE OF TRUTH
 model StockTransaction {
-  id          String               @id @default(uuid())
+  id          String @id @default(uuid())
   householdId String
   productId   String
   stockLotId  String
-  
+
   type   StockTransactionType
   amount Float // Positive for additions, negative for removals
-  
+
   userId    String
   createdAt DateTime @default(now())
 
@@ -191,8 +197,8 @@ enum StockTransactionType {
 // Aggregated stock per product (for fast queries)
 model CurrentStock {
   householdId String
-  productId   String   @unique
-  
+  productId   String @unique
+
   quantity  Float
   updatedAt DateTime @updatedAt
 
@@ -223,14 +229,14 @@ model StockLotBalance {
 
 // Shopping List Items
 model ShoppingListItem {
-  id          String   @id @default(uuid())
+  id          String @id @default(uuid())
   householdId String
   productId   String
 
-  quantity    Float @default(1.0)
-  purchased   Boolean @default(false)
+  quantity    Float     @default(1.0)
+  purchased   Boolean   @default(false)
   purchasedAt DateTime?
-  isSuggested Boolean @default(false)
+  isSuggested Boolean   @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

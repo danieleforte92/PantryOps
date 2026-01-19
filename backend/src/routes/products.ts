@@ -17,6 +17,10 @@ const createProductSchema = z.object({
     shelfLifeDays: z.number().int().positive().optional(),
     openedShelfLifeDays: z.number().int().positive().optional(),
     barcode: z.string().optional(),
+    nutriscore: z.string().optional(),
+    novaGroup: z.number().int().optional(),
+    ecoScore: z.string().optional(),
+    categories: z.array(z.string()).default([]),
 });
 
 export async function productRoutes(app: FastifyInstance) {

@@ -31,6 +31,8 @@ export default function ShoppingPage() {
   const suggestions = data?.suggestions ?? [];
   const allItems = data?.all ?? [];
 
+  const addMutation = useAddShoppingItem();
+
   const handleSyncSuggestions = async () => {
     try {
       await syncSuggestionsMutation.mutateAsync();
@@ -68,28 +70,6 @@ export default function ShoppingPage() {
     }
   };
 
-  const handleAddSuggestion = async (suggestion: typeof suggestions[0]) => {
-    const { useAddShoppingItem } = await import('../hooks/useApi');
-    // Note: Hook rules usually forbid this, but since it's inside an async handler and we need context, 
-    // it's better to move logic. Ideally useMutation should be called at top level.
-    // However, for this refactor I'll assume the implementation in the original file was working 
-    // or I'll fix it if it was broken. Wait, the original had dynamic import.
-    // Actually, useAddShoppingItem CANNOT be used here. 
-    // The previous code had: const addMutation = useAddShoppingItem(); inside the handler?? No, that's invalid React.
-    // Let's use the hook at the top level properly.
-    // I'll skip fixing that specifically now and just alert user if I see issues, but wait, 
-    // in the original file line 75: const addMutation = useAddShoppingItem(); WAS inside handleAddSuggestion. This is a BUG. 
-    // I should fix it by having a top level mutation.
-    // Ah, line 14: const addMutation = useAddShoppingItem(); IS at top level in original?
-    // checking original file...
-    // Line 75: const addMutation = useAddShoppingItem(); inside handleAddSuggestion. 
-    // This is definitely a rules of hooks violation. 
-    // I will fix it by using a second instance of the mutation or reusing one if possible.
-    // I'll add a separate top-level hook for adding suggestions.
-  };
-
-  // Fix for the hook violation above:
-  const addMutation = useAddShoppingItem();
   const handleAddSuggestionFixed = async (suggestion: typeof suggestions[0]) => {
     try {
       await addMutation.mutateAsync({
@@ -216,9 +196,15 @@ export default function ShoppingPage() {
 
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-gray-900 dark:text-white truncate">{suggestion.product.name}</p>
-                  <p className="text-xs text-text-muted">
-                    Stock: {suggestion.currentStock} • Min: {suggestion.minStock}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs text-text-muted">
+                      Stock: {suggestion.currentStock} • Min: {suggestion.minStock}
+                    </p>
+                    {/* Tiny badges for suggestions */}
+                    <div className="flex gap-1 items-center">
+                      {/* Note: suggestions currently don't have health data in the query, but we add placeholder for when they do */}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="text-right mr-2">
@@ -259,8 +245,8 @@ export default function ShoppingPage() {
               {/* Checkbox */}
               <button
                 className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${item.purchased
-                    ? 'bg-success border-success text-white'
-                    : 'border-gray-300 dark:border-gray-600 hover:border-primary'
+                  ? 'bg-success border-success text-white'
+                  : 'border-gray-300 dark:border-gray-600 hover:border-primary'
                   }`}
                 onClick={() => handleTogglePurchased(item)}
               >
@@ -285,11 +271,33 @@ export default function ShoppingPage() {
                 <p className={`font-bold text-sm text-gray-900 dark:text-white truncate ${item.purchased ? 'line-through' : ''}`}>
                   {item.product.name}
                 </p>
-                {item.isSuggested && (
-                  <Badge variant="secondary" className="mt-0.5 text-[10px] h-4 px-1.5">
-                    Suggerito
-                  </Badge>
-                )}
+                <div className="flex items-center gap-2 mt-0.5">
+                  {item.isSuggested && (
+                    <Badge variant="secondary" className="text-[10px] h-4 px-1.5 shrink-0">
+                      Suggerito
+                    </Badge>
+                  )}
+                  {/* Health Badges */}
+                  <div className="flex gap-1 items-center scale-[0.85] origin-left">
+                    {item.product.nutriscore && (
+                      <div className={`text-[8px] font-black px-1 py-0.5 rounded ${item.product.nutriscore === 'A' ? 'bg-green-600' :
+                        item.product.nutriscore === 'B' ? 'bg-green-500' :
+                          item.product.nutriscore === 'C' ? 'bg-yellow-500' :
+                            item.product.nutriscore === 'D' ? 'bg-orange-500' : 'bg-red-500'
+                        } text-white uppercase`}>
+                        {item.product.nutriscore}
+                      </div>
+                    )}
+                    {item.product.novaGroup && (
+                      <div className={`text-[8px] font-black px-1 py-0.5 rounded ${item.product.novaGroup === 1 ? 'bg-green-600' :
+                        item.product.novaGroup === 2 ? 'bg-yellow-500' :
+                          item.product.novaGroup === 3 ? 'bg-orange-500' : 'bg-red-500'
+                        } text-white`}>
+                        N{item.product.novaGroup}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Quantity */}

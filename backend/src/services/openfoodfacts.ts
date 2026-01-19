@@ -5,7 +5,10 @@ interface OFFProduct {
     brand?: string;
     imageUrl?: string;
     quantity?: string;
-    categories?: string;
+    categories?: string[];
+    nutriscore?: string;
+    novaGroup?: number;
+    ecoScore?: string;
 }
 
 interface OFFResponse {
@@ -17,7 +20,10 @@ interface OFFResponse {
         image_url?: string;
         image_front_url?: string;
         quantity?: string;
-        categories?: string;
+        categories_tags?: string[];
+        nutriscore_grade?: string;
+        nova_group?: number;
+        ecoscore_grade?: string;
     };
 }
 
@@ -45,12 +51,20 @@ export async function getProductByBarcode(code: string): Promise<OFFProduct | nu
 
         const p = data.product;
 
+        // Extract a clean list of categories (removing 'en:' prefix if present)
+        const cleanCategories = p.categories_tags?.map(cat =>
+            cat.startsWith('en:') ? cat.substring(3).replace(/-/g, ' ') : cat
+        ).slice(0, 5); // Limit to top 5
+
         return {
             name: p.product_name_it || p.product_name || 'Unknown Product',
             brand: p.brands,
             imageUrl: p.image_front_url || p.image_url,
             quantity: p.quantity,
-            categories: p.categories,
+            categories: cleanCategories,
+            nutriscore: p.nutriscore_grade?.toUpperCase(),
+            novaGroup: p.nova_group,
+            ecoScore: p.ecoscore_grade?.toUpperCase(),
         };
     } catch (error) {
         console.error('OpenFoodFacts fetch error:', error);

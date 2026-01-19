@@ -118,6 +118,8 @@ export async function queryRoutes(app: FastifyInstance) {
                 name: p.name,
                 imageUrl: p.imageUrl,
                 unit: p.stockUnit.abbreviation,
+                nutriscore: p.nutriscore,
+                novaGroup: p.novaGroup,
             },
             current: p.currentStock?.quantity ?? 0,
             minimum: p.minStockAmount!,
@@ -182,6 +184,8 @@ export async function queryRoutes(app: FastifyInstance) {
                 id: s.productId,
                 name: s.productName,
                 imageUrl: s.productImage,
+                nutriscore: (s as any).nutriscore,
+                novaGroup: (s as any).novaGroup,
             },
             currentStock: s.currentStock,
             minStock: s.minStock,
@@ -191,39 +195,37 @@ export async function queryRoutes(app: FastifyInstance) {
             isSuggestion: true,
         }));
 
-        const formattedManual = manualItems.map(item => {
-            const current = item.product.currentStock?.quantity ?? 0;
-            return {
-                id: item.id,
-                product: {
-                    id: item.product.id,
-                    name: item.product.name,
-                    imageUrl: item.product.imageUrl,
-                },
-                quantity: item.quantity,
-                purchased: item.purchased,
-                purchasedAt: item.purchasedAt,
-                isSuggested: item.isSuggested,
-                purchaseUnit: item.product.purchaseUnit.abbreviation,
-            };
-        });
+        const formattedManual = manualItems.map(item => ({
+            id: item.id,
+            product: {
+                id: item.product.id,
+                name: item.product.name,
+                imageUrl: item.product.imageUrl,
+                nutriscore: item.product.nutriscore,
+                novaGroup: item.product.novaGroup,
+            },
+            quantity: item.quantity,
+            purchased: item.purchased,
+            purchasedAt: item.purchasedAt,
+            isSuggested: item.isSuggested,
+            purchaseUnit: item.product.purchaseUnit.abbreviation,
+        }));
 
-        const formattedAll = allItems.map(item => {
-            const current = item.product.currentStock?.quantity ?? 0;
-            return {
-                id: item.id,
-                product: {
-                    id: item.product.id,
-                    name: item.product.name,
-                    imageUrl: item.product.imageUrl,
-                },
-                quantity: item.quantity,
-                purchased: item.purchased,
-                purchasedAt: item.purchasedAt,
-                isSuggested: item.isSuggested,
-                purchaseUnit: item.product.purchaseUnit.abbreviation,
-            };
-        });
+        const formattedAll = allItems.map(item => ({
+            id: item.id,
+            product: {
+                id: item.product.id,
+                name: item.product.name,
+                imageUrl: item.product.imageUrl,
+                nutriscore: item.product.nutriscore,
+                novaGroup: item.product.novaGroup,
+            },
+            quantity: item.quantity,
+            purchased: item.purchased,
+            purchasedAt: item.purchasedAt,
+            isSuggested: item.isSuggested,
+            purchaseUnit: item.product.purchaseUnit.abbreviation,
+        }));
 
         return {
             suggestions: formattedSuggestions,
@@ -241,6 +243,8 @@ function formatExpiringItem(lot: any) {
             name: lot.stockLot.product.name,
             imageUrl: lot.stockLot.product.imageUrl,
             unit: lot.stockLot.product.stockUnit.abbreviation,
+            nutriscore: lot.stockLot.product.nutriscore,
+            novaGroup: lot.stockLot.product.novaGroup,
         },
         location: lot.stockLot.location.name,
         quantity: lot.remainingQuantity,

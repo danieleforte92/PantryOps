@@ -131,6 +131,8 @@ export async function getSuggestions(householdId: string) {
         productId: p.id,
         productName: p.name,
         productImage: p.imageUrl,
+        nutriscore: p.nutriscore,
+        novaGroup: p.novaGroup,
         currentStock: current,
         minStock: p.minStockAmount ?? 0,
         neededStockUnits: needed,

@@ -35,7 +35,21 @@ export function LowStockPanel({ items }: LowStockPanelProps) {
                             </div>
 
                             <div className="flex flex-col flex-1 min-w-0">
-                                <span className="font-bold text-sm text-gray-900 dark:text-white truncate">{item.product.name}</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="font-bold text-sm text-gray-900 dark:text-white truncate">{item.product.name}</span>
+                                    {/* Tiny Health Badges */}
+                                    <div className="flex gap-1 items-center scale-75 origin-left shrink-0">
+                                        {item.product.nutriscore && (
+                                            <div className={`text-[8px] font-black px-1 py-0.5 rounded ${item.product.nutriscore === 'A' ? 'bg-green-600' :
+                                                    item.product.nutriscore === 'B' ? 'bg-green-500' :
+                                                        item.product.nutriscore === 'C' ? 'bg-yellow-500' :
+                                                            item.product.nutriscore === 'D' ? 'bg-orange-500' : 'bg-red-500'
+                                                } text-white uppercase`}>
+                                                {item.product.nutriscore}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                                 <div className="flex items-center gap-2">
                                     <span className="text-xs text-danger font-bold">{item.current} {item.product.unit}</span>
                                     <span className="text-[10px] text-gray-500 font-medium">min: {item.minimum}</span>

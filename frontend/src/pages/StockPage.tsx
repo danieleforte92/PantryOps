@@ -1,4 +1,5 @@
 import { useCurrentStock, useConsume, usePurchase } from '../hooks/useApi';
+import { StockItem } from '../api/client';
 import { Package, Minus, Plus, Search } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { Card } from '../components/ui/Card';
@@ -14,7 +15,7 @@ export default function StockPage() {
     // Track loading states locally to avoid UI jitter using mutation.isPending which is global
     const [processingId, setProcessingId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [editingItem, setEditingItem] = useState<typeof data.stock[0] | null>(null);
+    const [editingItem, setEditingItem] = useState<StockItem | null>(null);
 
     const stockItems = useMemo(() => {
         if (!data?.stock) return [];
@@ -126,9 +127,32 @@ export default function StockPage() {
                                         <h3 className="font-bold text-gray-900 dark:text-gray-100 truncate">{item.product.name}</h3>
                                         <StockStatusBadge status={status} showLabel={false} className="scale-75 origin-left" />
                                     </div>
-                                    <p className="text-sm text-gray-500">
-                                        {item.quantity.toFixed(item.product.stockUnit.abbreviation === 'pz' ? 0 : 1)} {item.product.stockUnit.abbreviation}
-                                    </p>
+                                    <div className="flex items-center gap-3">
+                                        <p className="text-sm text-gray-500 font-medium">
+                                            {item.quantity.toFixed(item.product.stockUnit.abbreviation === 'pz' ? 0 : 1)} {item.product.stockUnit.abbreviation}
+                                        </p>
+
+                                        {/* Inline mini health badges */}
+                                        <div className="flex gap-1.5 items-center">
+                                            {item.product.nutriscore && (
+                                                <div className={`text-[9px] font-black px-1.5 py-0.5 rounded ${item.product.nutriscore === 'A' ? 'bg-green-600' :
+                                                    item.product.nutriscore === 'B' ? 'bg-green-500' :
+                                                        item.product.nutriscore === 'C' ? 'bg-yellow-500' :
+                                                            item.product.nutriscore === 'D' ? 'bg-orange-500' : 'bg-red-500'
+                                                    } text-white uppercase`}>
+                                                    {item.product.nutriscore}
+                                                </div>
+                                            )}
+                                            {item.product.novaGroup && (
+                                                <div className={`text-[9px] font-black px-1.5 py-0.5 rounded ${item.product.novaGroup === 1 ? 'bg-green-600' :
+                                                    item.product.novaGroup === 2 ? 'bg-yellow-500' :
+                                                        item.product.novaGroup === 3 ? 'bg-orange-500' : 'bg-red-500'
+                                                    } text-white`}>
+                                                    N{item.product.novaGroup}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div className="flex flex-col items-center gap-2">

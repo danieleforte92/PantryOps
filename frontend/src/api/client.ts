@@ -164,6 +164,10 @@ export interface Product {
     purchaseToStockFactor: number;
     defaultLocation?: Location;
     currentStock?: { quantity: number };
+    nutriscore?: string;
+    novaGroup?: number;
+    ecoScore?: string;
+    categories?: string[];
 }
 
 export interface ScanResult {
@@ -175,6 +179,10 @@ export interface ScanResult {
         brand?: string;
         imageUrl?: string;
         quantity?: string;
+        nutriscore?: string;
+        novaGroup?: number;
+        ecoScore?: string;
+        categories?: string[];
     };
     barcode?: string;
 }
@@ -191,6 +199,10 @@ export interface CreateProductData {
     minStockAmount?: number;
     shelfLifeDays?: number;
     barcode?: string;
+    nutriscore?: string;
+    novaGroup?: number;
+    ecoScore?: string;
+    categories?: string[];
 }
 
 export interface PurchaseData {
@@ -225,7 +237,7 @@ export interface StockItem {
 
 export interface ExpiringItem {
     lotId: string;
-    product: { id: string; name: string; imageUrl?: string; unit: string };
+    product: { id: string; name: string; imageUrl?: string; unit: string; nutriscore?: string; novaGroup?: number };
     location: string;
     quantity: number;
     bestBeforeDate: string;
@@ -239,7 +251,7 @@ export interface ExpiringItems {
 }
 
 export interface LowStockItem {
-    product: { id: string; name: string; imageUrl?: string; unit: string };
+    product: { id: string; name: string; imageUrl?: string; unit: string; nutriscore?: string; novaGroup?: number };
     current: number;
     minimum: number;
     needed: number;
@@ -247,7 +259,7 @@ export interface LowStockItem {
 
 export interface ShoppingListItem {
     id: string;
-    product: { id: string; name: string; imageUrl?: string };
+    product: { id: string; name: string; imageUrl?: string; nutriscore?: string; novaGroup?: number };
     quantity: number;
     purchased: boolean;
     purchasedAt?: string;
@@ -258,7 +270,7 @@ export interface ShoppingListItem {
 }
 
 export interface ShoppingSuggestion {
-    product: { id: string; name: string; imageUrl?: string };
+    product: { id: string; name: string; imageUrl?: string; nutriscore?: string; novaGroup?: number };
     currentStock: number;
     minStock: number;
     neededStockUnits: number;

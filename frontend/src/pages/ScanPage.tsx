@@ -12,6 +12,54 @@ import type { ScanResult } from '../api/client';
 
 type ScanState = 'scanning' | 'found' | 'new' | 'adding' | 'manual';
 
+// Helper Component for Health & Sustainability Badges
+function HealthBadges({ nutriscore, novaGroup, ecoScore }: { nutriscore?: string, novaGroup?: number, ecoScore?: string }) {
+    if (!nutriscore && !novaGroup && !ecoScore) return null;
+
+    return (
+        <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100 dark:border-white/5">
+            {nutriscore && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-white/5 rounded-lg border border-gray-200 dark:border-white/5">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase">Nutri</span>
+                    <span className={`text-xs font-black px-1.5 py-0.5 rounded ${nutriscore === 'A' ? 'bg-green-600' :
+                        nutriscore === 'B' ? 'bg-green-500' :
+                            nutriscore === 'C' ? 'bg-yellow-500' :
+                                nutriscore === 'D' ? 'bg-orange-500' :
+                                    nutriscore === 'E' ? 'bg-red-500' : 'bg-gray-400'
+                        } text-white`}>
+                        {nutriscore}
+                    </span>
+                </div>
+            )}
+            {novaGroup && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-white/5 rounded-lg border border-gray-200 dark:border-white/5">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase">Nova</span>
+                    <span className={`text-xs font-black px-1.5 py-0.5 rounded ${novaGroup === 1 ? 'bg-green-600' :
+                        novaGroup === 2 ? 'bg-yellow-500' :
+                            novaGroup === 3 ? 'bg-orange-500' :
+                                novaGroup === 4 ? 'bg-red-500' : 'bg-gray-400'
+                        } text-white`}>
+                        {novaGroup}
+                    </span>
+                </div>
+            )}
+            {ecoScore && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-white/5 rounded-lg border border-gray-200 dark:border-white/5">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase">Eco</span>
+                    <span className={`text-xs font-black px-1.5 py-0.5 rounded ${ecoScore === 'A' ? 'bg-green-600' :
+                        ecoScore === 'B' ? 'bg-green-500' :
+                            ecoScore === 'C' ? 'bg-yellow-500' :
+                                ecoScore === 'D' ? 'bg-orange-500' :
+                                    ecoScore === 'E' ? 'bg-red-500' : 'bg-gray-400'
+                        } text-white`}>
+                        {ecoScore}
+                    </span>
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function ScanPage() {
     const navigate = useNavigate();
     const [scanState, setScanState] = useState<ScanState>('scanning');
@@ -32,9 +80,15 @@ export default function ScanPage() {
     // New product form
     const [newProduct, setNewProduct] = useState({
         name: '',
+        description: '',
+        imageUrl: '',
         stockUnitId: '',
         purchaseUnitId: '',
         defaultLocationId: '',
+        nutriscore: '',
+        novaGroup: undefined as number | undefined,
+        ecoScore: '',
+        categories: [] as string[],
     });
 
     // Purchase form
@@ -120,17 +174,47 @@ export default function ScanPage() {
                 setScanState('new');
                 setNewProduct({
                     name: result.suggestion?.name || '',
+                    description: '',
+                    imageUrl: result.suggestion?.imageUrl || '',
                     stockUnitId: unitsData?.units.find((u) => u.name === 'Pezzi')?.id || '',
                     purchaseUnitId: unitsData?.units.find((u) => u.name === 'Pezzi')?.id || '',
                     defaultLocationId: locationsData?.locations[0]?.id || '',
+                    nutriscore: result.suggestion?.nutriscore || '',
+                    novaGroup: result.suggestion?.novaGroup,
+                    ecoScore: result.suggestion?.ecoScore || '',
+                    categories: result.suggestion?.categories || [],
                 });
             } else {
                 setScanState('new');
+                setNewProduct({
+                    name: '',
+                    description: '',
+                    imageUrl: '',
+                    stockUnitId: '',
+                    purchaseUnitId: '',
+                    defaultLocationId: '',
+                    nutriscore: '',
+                    novaGroup: undefined,
+                    ecoScore: '',
+                    categories: []
+                });
             }
         } catch (err: any) {
             if (err.message?.includes('404') || err.message?.includes('not found')) {
                 setScanState('new');
                 setScanResult({ status: 'UNKNOWN', barcode: code });
+                setNewProduct({
+                    name: '',
+                    description: '',
+                    imageUrl: '',
+                    stockUnitId: '',
+                    purchaseUnitId: '',
+                    defaultLocationId: '',
+                    nutriscore: '',
+                    novaGroup: undefined,
+                    ecoScore: '',
+                    categories: []
+                });
             } else {
                 console.error("Scan Error:", err);
                 setError(err.message || 'Scan failed');
@@ -159,10 +243,16 @@ export default function ScanPage() {
         try {
             const result = await createProductMutation.mutateAsync({
                 name: newProduct.name,
+                description: newProduct.description,
+                imageUrl: newProduct.imageUrl || undefined,
                 stockUnitId: newProduct.stockUnitId,
                 purchaseUnitId: newProduct.purchaseUnitId || newProduct.stockUnitId,
                 defaultLocationId: newProduct.defaultLocationId,
                 barcode: barcode,
+                nutriscore: newProduct.nutriscore || undefined,
+                novaGroup: newProduct.novaGroup,
+                ecoScore: newProduct.ecoScore || undefined,
+                categories: newProduct.categories,
             });
 
             // Switch to purchase state
@@ -208,7 +298,18 @@ export default function ScanPage() {
         setManualBarcode('');
         setError('');
         setPurchaseData({ quantity: 1, bestBeforeDate: '', locationId: '' });
-        setNewProduct({ name: '', stockUnitId: '', purchaseUnitId: '', defaultLocationId: '' });
+        setNewProduct({
+            name: '',
+            description: '',
+            imageUrl: '',
+            stockUnitId: '',
+            purchaseUnitId: '',
+            defaultLocationId: '',
+            nutriscore: '',
+            novaGroup: undefined,
+            ecoScore: '',
+            categories: []
+        });
 
         if (scannerRef.current) {
             try {
@@ -307,23 +408,32 @@ export default function ScanPage() {
                 <div className="absolute inset-x-0 bottom-0 z-20 bg-background-light dark:bg-zinc-900 rounded-t-3xl p-6 shadow-2xl animate-slide-up">
                     <div className="w-12 h-1.5 bg-gray-300 dark:bg-zinc-700 rounded-full mx-auto mb-6" />
 
-                    <div className="flex items-start gap-4 mb-6">
-                        {scanResult.product.imageUrl ? (
-                            <img src={scanResult.product.imageUrl} alt={scanResult.product.name} className="w-20 h-20 rounded-2xl object-cover bg-white shadow-sm" />
-                        ) : (
-                            <div className="w-20 h-20 rounded-2xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-gray-400">
-                                <Package size={32} />
+                    <div className="flex flex-col gap-6 mb-6">
+                        <div className="flex items-start gap-4">
+                            {scanResult.product.imageUrl ? (
+                                <img src={scanResult.product.imageUrl} alt={scanResult.product.name} className="w-20 h-20 rounded-2xl object-cover bg-white shadow-sm" />
+                            ) : (
+                                <div className="w-20 h-20 rounded-2xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-gray-400">
+                                    <Package size={32} />
+                                </div>
+                            )}
+                            <div className="flex-1">
+                                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight mb-1">{scanResult.product.name}</h2>
+                                <p className="text-sm text-gray-500">
+                                    Stock: {scanResult.product.currentStock?.quantity ?? 0} {scanResult.product.stockUnit.abbreviation}
+                                </p>
                             </div>
-                        )}
-                        <div className="flex-1">
-                            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight mb-1">{scanResult.product.name}</h2>
-                            <p className="text-sm text-gray-500">
-                                Stock: {scanResult.product.currentStock?.quantity ?? 0} {scanResult.product.stockUnit.abbreviation}
-                            </p>
+                            <button onClick={resetScanner} className="p-2 -mr-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                                <X size={24} />
+                            </button>
                         </div>
-                        <button onClick={resetScanner} className="p-2 -mr-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                            <X size={24} />
-                        </button>
+
+                        {/* Health Badges for KNOWN product */}
+                        <HealthBadges
+                            nutriscore={scanResult.product.nutriscore}
+                            novaGroup={scanResult.product.novaGroup}
+                            ecoScore={scanResult.product.ecoScore}
+                        />
                     </div>
 
                     <div className="mb-6">
@@ -390,14 +500,24 @@ export default function ScanPage() {
                     </div>
 
                     {scanResult?.suggestion && (
-                        <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 mb-6 flex items-center gap-4">
-                            {scanResult.suggestion.imageUrl && (
-                                <img src={scanResult.suggestion.imageUrl} alt="" className="w-12 h-12 rounded-lg object-cover" />
-                            )}
-                            <div>
-                                <p className="text-xs text-primary font-semibold uppercase tracking-wider mb-0.5">Suggerito</p>
-                                <p className="font-medium text-gray-900 dark:text-gray-100 leading-tight">{scanResult.suggestion.name}</p>
+                        <div className="bg-white dark:bg-zinc-800/80 border border-gray-100 dark:border-white/5 rounded-[1.5rem] p-4 mb-6 shadow-sm flex flex-col gap-4">
+                            <div className="flex items-center gap-4">
+                                {scanResult.suggestion.imageUrl && (
+                                    <img src={scanResult.suggestion.imageUrl} alt="" className="w-16 h-16 rounded-xl object-cover shadow-sm bg-white" />
+                                )}
+                                <div className="flex-1">
+                                    <p className="text-[10px] text-primary font-black uppercase tracking-widest mb-1">Dati OpenFoodFacts</p>
+                                    <p className="font-bold text-gray-900 dark:text-gray-100 leading-tight text-lg">{scanResult.suggestion.name}</p>
+                                    {scanResult.suggestion.brand && <p className="text-xs text-text-muted font-medium">{scanResult.suggestion.brand}</p>}
+                                </div>
                             </div>
+
+                            {/* Health & Sustainability Badges for SUGGESTION */}
+                            <HealthBadges
+                                nutriscore={scanResult.suggestion.nutriscore}
+                                novaGroup={scanResult.suggestion.novaGroup}
+                                ecoScore={scanResult.suggestion.ecoScore}
+                            />
                         </div>
                     )}
 

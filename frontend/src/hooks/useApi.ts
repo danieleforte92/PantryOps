@@ -284,3 +284,17 @@ export function useCookRecipe() {
         },
     });
 }
+
+// Create Recipe Mutation
+export function useCreateRecipe() {
+    const queryClient = useQueryClient();
+    const { household } = useAuth();
+
+    return useMutation({
+        mutationFn: (data: { name: string; servings: number; ingredients: { productId: string; quantity: number; unitId: string }[] }) =>
+            recipesApi.create({ ...data, householdId: household.id }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['recipes'] });
+        },
+    });
+}

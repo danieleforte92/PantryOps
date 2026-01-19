@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { ChefHat, Sparkles, Clock, Users } from 'lucide-react';
+import { ChefHat, Sparkles, Clock, Users, Plus } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import GenerateRecipeModal from '../components/modals/GenerateRecipeModal';
 import RecipeDetailModal from '../components/modals/RecipeDetailModal';
+import CreateRecipeModal from '../components/modals/CreateRecipeModal';
 
 export default function RecipePage() {
     const [showGenerateModal, setShowGenerateModal] = useState(false);
+    const [showCreateModal, setShowCreateModal] = useState(false);
     const [selectedRecipe, setSelectedRecipe] = useState<any>(null); // In real app: Recipe type
 
     const [recipes, setRecipes] = useState<{
@@ -38,6 +40,12 @@ export default function RecipePage() {
         setRecipes(prev => [newRecipe, ...prev]);
     };
 
+    const handleRecipeCreated = () => {
+        // Refresh recipes after creation
+        // This will be replaced with actual refetch when useRecipes is integrated
+        console.log('Recipe created successfully');
+    };
+
     return (
         <div className="animate-fade-in pb-24 space-y-6">
             {/* Header */}
@@ -46,10 +54,16 @@ export default function RecipePage() {
                     <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Ricette</h1>
                     <p className="text-gray-500 font-medium">Idee per cucinare cene perfette</p>
                 </div>
-                <Button className="rounded-xl shadow-primary/25" onClick={() => setShowGenerateModal(true)}>
-                    <Sparkles size={18} className="mr-2" />
-                    Genera
-                </Button>
+                <div className="flex gap-2">
+                    <Button variant="secondary" className="rounded-xl" onClick={() => setShowCreateModal(true)}>
+                        <Plus size={18} className="mr-2" />
+                        Nuova
+                    </Button>
+                    <Button className="rounded-xl shadow-primary/25" onClick={() => setShowGenerateModal(true)}>
+                        <Sparkles size={18} className="mr-2" />
+                        Genera
+                    </Button>
+                </div>
             </header>
 
             {/* Categories / Filters (Mock) */}
@@ -135,6 +149,14 @@ export default function RecipePage() {
                 <GenerateRecipeModal
                     onClose={() => setShowGenerateModal(false)}
                     onGenerate={handleRecipeGenerated}
+                />
+            )}
+
+            {/* Create Recipe Modal */}
+            {showCreateModal && (
+                <CreateRecipeModal
+                    onClose={() => setShowCreateModal(false)}
+                    onSuccess={handleRecipeCreated}
                 />
             )}
 

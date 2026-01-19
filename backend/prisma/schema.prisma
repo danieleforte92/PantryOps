@@ -1,0 +1,243 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// MULTI-TENANT FOUNDATION
+// ============================================
+
+model Household {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  users         HouseholdUser[]
+  products      Product[]
+  locations     Location[]
+  stockLots     StockLot[]
+  transactions  StockTransaction[]
+  currentStock  CurrentStock[]
+  shoppingItems ShoppingListItem[]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime @default(now())
+
+  households   HouseholdUser[]
+  transactions StockTransaction[]
+}
+
+model HouseholdUser {
+  householdId String
+  userId      String
+  role        HouseholdRole @default(MEMBER)
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([householdId, userId])
+}
+
+enum HouseholdRole {
+  ADMIN
+  MEMBER
+}
+
+// ============================================
+// CONFIGURATION ENTITIES
+// ============================================
+
+model Unit {
+  id           String @id @default(uuid())
+  name         String @unique
+  abbreviation String
+
+  productsStock    Product[] @relation("StockUnit")
+  productsPurchase Product[] @relation("PurchaseUnit")
+}
+
+model Location {
+  id          String   @id @default(uuid())
+  householdId String
+  name        String
+  isFreezer   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  household       Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  stockLots       StockLot[]
+  defaultProducts Product[]
+
+  @@unique([householdId, name])
+}
+
+// ============================================
+// MASTER DATA
+// ============================================
+
+model Product {
+  id          String  @id @default(uuid())
+  householdId String
+  name        String
+  description String?
+  imageUrl    String?
+
+  // Units
+  stockUnitId           String
+  purchaseUnitId        String
+  purchaseToStockFactor Float  @default(1.0)
+
+  // Defaults
+  defaultLocationId String?
+  minStockAmount    Float?
+
+  // Shelf life (days)
+  shelfLifeDays       Int?
+  openedShelfLifeDays Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  household       Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  stockUnit       Unit      @relation("StockUnit", fields: [stockUnitId], references: [id])
+  purchaseUnit    Unit      @relation("PurchaseUnit", fields: [purchaseUnitId], references: [id])
+  defaultLocation Location? @relation(fields: [defaultLocationId], references: [id])
+
+  barcodes       Barcode[]
+  stockLots      StockLot[]
+  transactions   StockTransaction[]
+  currentStock   CurrentStock?
+  shoppingItems  ShoppingListItem[]
+
+  @@unique([householdId, name])
+}
+
+model Barcode {
+  code      String @id
+  productId String
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+// ============================================
+// INVENTORY (APPEND-ONLY MODEL)
+// ============================================
+
+// Physical lot - NO quantity column!
+// Quantity is derived from transactions
+model StockLot {
+  id          String    @id @default(uuid())
+  householdId String
+  productId   String
+  locationId  String
+  
+  bestBeforeDate DateTime?
+  purchasedAt    DateTime  @default(now())
+  
+  createdAt DateTime @default(now())
+
+  household    Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  product      Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  location     Location           @relation(fields: [locationId], references: [id])
+  transactions StockTransaction[]
+  balance      StockLotBalance?
+
+  @@index([householdId, productId])
+  @@index([bestBeforeDate])
+}
+
+// Immutable transaction log - SOURCE OF TRUTH
+model StockTransaction {
+  id          String               @id @default(uuid())
+  householdId String
+  productId   String
+  stockLotId  String
+  
+  type   StockTransactionType
+  amount Float // Positive for additions, negative for removals
+  
+  userId    String
+  createdAt DateTime @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  stockLot  StockLot  @relation(fields: [stockLotId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@index([householdId, productId, createdAt])
+  @@index([stockLotId])
+}
+
+enum StockTransactionType {
+  PURCHASE
+  CONSUME
+  OPEN
+  TRANSFER
+  CORRECTION
+}
+
+// ============================================
+// PROJECTIONS (Derived, rebuildable)
+// ============================================
+
+// Aggregated stock per product (for fast queries)
+model CurrentStock {
+  householdId String
+  productId   String   @unique
+  
+  quantity  Float
+  updatedAt DateTime @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([householdId, productId])
+}
+
+// Per-lot balance (for FEFO queries)
+model StockLotBalance {
+  stockLotId  String @id
+  householdId String
+  productId   String
+
+  remainingQuantity Float
+
+  bestBeforeDate DateTime?
+  purchasedAt    DateTime
+  openedAt       DateTime?
+
+  updatedAt DateTime @updatedAt
+
+  stockLot StockLot @relation(fields: [stockLotId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, productId, bestBeforeDate, purchasedAt])
+}
+
+// Shopping List Items
+model ShoppingListItem {
+  id          String   @id @default(uuid())
+  householdId String
+  productId   String
+
+  quantity    Float @default(1.0)
+  purchased   Boolean @default(false)
+  purchasedAt DateTime?
+  isSuggested Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, productId])
+  @@index([householdId, purchased])
+}

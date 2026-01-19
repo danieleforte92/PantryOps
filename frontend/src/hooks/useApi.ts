@@ -1,0 +1,236 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queriesApi, stockApi, productsApi } from '../api/client';
+
+// Get current user context (for MVP, stored in localStorage)
+export function useAuth() {
+    const stored = localStorage.getItem('bettergrocy_auth');
+    if (!stored) return { user: null, household: null };
+
+    try {
+        return JSON.parse(stored);
+    } catch {
+        return { user: null, household: null };
+    }
+}
+
+export function setAuth(user: any, household: any) {
+    localStorage.setItem('bettergrocy_auth', JSON.stringify({ user, household }));
+}
+
+export function clearAuth() {
+    localStorage.removeItem('bettergrocy_auth');
+}
+
+// Current Stock Query
+export function useCurrentStock() {
+    const { household } = useAuth();
+
+    return useQuery({
+        queryKey: ['current-stock', household?.id],
+        queryFn: () => queriesApi.getCurrentStock(household.id),
+        enabled: !!household?.id,
+    });
+}
+
+// Expiring Items Query
+export function useExpiringItems(days = 7) {
+    const { household } = useAuth();
+
+    return useQuery({
+        queryKey: ['expiring', household?.id, days],
+        queryFn: () => queriesApi.getExpiring(household.id, days),
+        enabled: !!household?.id,
+    });
+}
+
+// Low Stock Query
+export function useLowStock() {
+    const { household } = useAuth();
+
+    return useQuery({
+        queryKey: ['low-stock', household?.id],
+        queryFn: () => queriesApi.getLowStock(household.id),
+        enabled: !!household?.id,
+    });
+}
+
+// Shopping List Query
+export function useShoppingList() {
+    const { household } = useAuth();
+
+    return useQuery({
+        queryKey: ['shopping-list', household?.id],
+        queryFn: () => queriesApi.getShoppingList(household.id),
+        enabled: !!household?.id,
+    });
+}
+
+// Add Shopping Item
+export function useAddShoppingItem() {
+    const queryClient = useQueryClient();
+    const { household } = useAuth();
+
+    return useMutation({
+        mutationFn: (data: { productId: string; quantity: number }) =>
+            shoppingApi.add({ ...data, householdId: household.id, isSuggested: false }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['shopping-list'] });
+        },
+    });
+}
+
+// Remove Shopping Item
+export function useRemoveShoppingItem() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (id: string) => shoppingApi.remove(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['shopping-list'] });
+        },
+    });
+}
+
+// Update Shopping Item Quantity
+export function useUpdateShoppingQuantity() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ id, quantity }: { id: string; quantity: number }) =>
+            shoppingApi.update(id, quantity),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['shopping-list'] });
+        },
+    });
+}
+
+// Toggle Shopping Item Purchased
+export function useToggleShoppingPurchased() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ id, purchased }: { id: string; purchased: boolean }) =>
+            shoppingApi.togglePurchased(id, purchased),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['shopping-list'] });
+        },
+    });
+}
+
+// Clear Purchased Items
+export function useClearPurchasedItems() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: () => shoppingApi.clearPurchased(),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['shopping-list'] });
+        },
+    });
+}
+
+// Sync Shopping Suggestions
+export function useSyncShoppingSuggestions() {
+    const queryClient = useQueryClient();
+    const { household } = useAuth();
+
+    return useMutation({
+        mutationFn: () => shoppingApi.syncSuggestions(household.id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['shopping-list'] });
+        },
+    });
+}
+
+// Products Query
+export function useProducts() {
+    const { household } = useAuth();
+
+    return useQuery({
+        queryKey: ['products', household?.id],
+        queryFn: () => productsApi.getAll(household.id),
+        enabled: !!household?.id,
+    });
+}
+
+// Units Query
+export function useUnits() {
+    return useQuery({
+        queryKey: ['units'],
+        queryFn: () => productsApi.getUnits(),
+    });
+}
+
+// Locations Query
+export function useLocations() {
+    const { household } = useAuth();
+
+    return useQuery({
+        queryKey: ['locations', household?.id],
+        queryFn: () => productsApi.getLocations(household.id),
+        enabled: !!household?.id,
+    });
+}
+
+// Purchase Mutation
+export function usePurchase() {
+    const queryClient = useQueryClient();
+    const { user, household } = useAuth();
+
+    return useMutation({
+        mutationFn: (data: { productId: string; quantity: number; locationId?: string; bestBeforeDate?: string }) =>
+            stockApi.purchase({
+                ...data,
+                householdId: household.id,
+                userId: user.id,
+            }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['current-stock'] });
+            queryClient.invalidateQueries({ queryKey: ['expiring'] });
+            queryClient.invalidateQueries({ queryKey: ['low-stock'] });
+        },
+    });
+}
+
+// Consume Mutation
+export function useConsume() {
+    const queryClient = useQueryClient();
+    const { user, household } = useAuth();
+
+    return useMutation({
+        mutationFn: (data: { productId: string; quantity: number }) =>
+            stockApi.consume({
+                ...data,
+                householdId: household.id,
+                userId: user.id,
+            }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['current-stock'] });
+            queryClient.invalidateQueries({ queryKey: ['expiring'] });
+            queryClient.invalidateQueries({ queryKey: ['low-stock'] });
+        },
+    });
+}
+
+// Scan Product
+export function useScanProduct() {
+    const { household } = useAuth();
+
+    return useMutation({
+        mutationFn: (barcode: string) => productsApi.scan(barcode, household.id),
+    });
+}
+
+// Create Product
+export function useCreateProduct() {
+    const queryClient = useQueryClient();
+    const { household } = useAuth();
+
+    return useMutation({
+        mutationFn: (data: Omit<Parameters<typeof productsApi.create>[0], 'householdId'>) =>
+            productsApi.create({ ...data, householdId: household.id }),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['products'] });
+        },
+    });
+}

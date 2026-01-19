@@ -1,0 +1,29 @@
+{
+  "name": "bettergrocy-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/server.ts",
+    "build": "bun build src/server.ts --outdir dist",
+    "start": "bun run dist/server.js",
+    "db:generate": "bunx prisma generate",
+    "db:push": "bunx prisma db push",
+    "db:seed": "bun run prisma/seed.ts",
+    "db:studio": "bunx prisma studio",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.2.1",
+    "fastify": "^5.2.1",
+    "fastify-type-provider-zod": "^4.0.2",
+    "@fastify/cors": "^10.0.2",
+    "zod": "^3.24.1",
+    "bcrypt": "^5.1.1",
+    "@types/bcrypt": "^5.0.2"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.14",
+    "prisma": "^6.2.1",
+    "typescript": "^5.7.3"
+  }
+}

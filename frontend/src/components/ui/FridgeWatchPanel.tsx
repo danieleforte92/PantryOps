@@ -14,16 +14,16 @@ export function FridgeWatchPanel({ expiringItems }: FridgeWatchPanelProps) {
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
                     <span className="bg-danger/10 text-danger p-1.5 rounded-lg">
-                        <span className="material-symbols-outlined text-[20px] icon-filled">timelapse</span>
+                        <span className="material-symbols-outlined text-[20px] icon-filled">notification_important</span>
                     </span>
-                    <h3 className="font-bold text-lg text-gray-900 dark:text-white">Fridge Watch</h3>
+                    <h3 className="font-bold text-lg text-gray-900 dark:text-white">Da usare presto</h3>
                 </div>
-                <Link to="/stock" className="text-xs font-bold text-gray-500 hover:text-primary transition-colors">View Pantry</Link>
+                <Link to="/stock" className="text-xs font-bold text-gray-500 hover:text-primary transition-colors">Vedi tutto</Link>
             </div>
 
             <div className="flex flex-col gap-3 flex-1">
                 {expiringItems.length === 0 ? (
-                    <div className="text-center py-8 text-gray-400 text-sm">Nothing expiring soon! 🎉</div>
+                    <div className="text-center py-8 text-gray-400 text-sm">Tutto sotto controllo! 🎉</div>
                 ) : (
                     expiringItems.slice(0, 3).map((item, idx) => {
                         const isExpired = new Date(item.bestBeforeDate) < new Date();
@@ -46,7 +46,7 @@ export function FridgeWatchPanel({ expiringItems }: FridgeWatchPanelProps) {
                                 <div className="flex flex-col flex-1 min-w-0">
                                     <span className="font-bold text-sm text-gray-900 dark:text-white truncate">{item.product.name}</span>
                                     <span className={`text-xs font-medium ${textClass}`}>
-                                        {isExpired ? 'Expired' : format(new Date(item.bestBeforeDate), 'd MMM', { locale: it })}
+                                        {isExpired ? 'Scaduto' : format(new Date(item.bestBeforeDate), 'd MMM', { locale: it })}
                                     </span>
                                 </div>
 
@@ -60,8 +60,8 @@ export function FridgeWatchPanel({ expiringItems }: FridgeWatchPanelProps) {
             </div>
 
             <button className="w-full mt-4 py-3 rounded-xl border-2 border-primary text-primary font-bold text-sm hover:bg-primary hover:text-white transition-all flex items-center justify-center gap-2">
-                <span className="material-symbols-outlined text-[18px]">auto_fix_high</span>
-                Generate Recipe
+                <span className="material-symbols-outlined text-[18px]">restaurant_menu</span>
+                Trova ricetta
             </button>
         </div>
     );

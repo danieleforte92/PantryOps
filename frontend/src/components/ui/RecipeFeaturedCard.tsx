@@ -1,5 +1,4 @@
-import { Badge } from './Badge';
-import { Timer, Heart, ArrowRight } from 'lucide-react';
+import { Timer, Heart } from 'lucide-react';
 
 interface RecipeFeaturedCardProps {
     title: string;
@@ -9,6 +8,7 @@ interface RecipeFeaturedCardProps {
     calories: number;
     missingIngredients?: string[];
     imageUrl: string;
+    onClick?: () => void;
 }
 
 export function RecipeFeaturedCard({
@@ -18,15 +18,19 @@ export function RecipeFeaturedCard({
     time,
     calories,
     missingIngredients = [],
-    imageUrl
+    imageUrl,
+    onClick
 }: RecipeFeaturedCardProps) {
     return (
-        <div className="group relative flex flex-col md:flex-row bg-white dark:bg-surface-dark rounded-3xl shadow-sm border border-gray-200 dark:border-white/5 overflow-hidden hover:shadow-md transition-all duration-300">
+        <div
+            className="group relative flex flex-col md:flex-row bg-white dark:bg-surface-dark rounded-3xl shadow-sm border border-gray-200 dark:border-white/5 overflow-hidden hover:shadow-md transition-all duration-300 cursor-pointer"
+            onClick={onClick}
+        >
             {/* Image Section */}
             <div className="w-full md:w-5/12 h-64 md:h-auto bg-cover bg-center relative" style={{ backgroundImage: `url("${imageUrl}")` }}>
                 <div className="absolute top-4 left-4 bg-white/90 dark:bg-black/80 backdrop-blur-sm px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-sm">
                     <div className={`h-2 w-2 rounded-full ${matchPercentage >= 90 ? 'bg-success' : 'bg-warning'}`}></div>
-                    <span className="text-xs font-bold text-gray-900 dark:text-white">Use Tomato</span>
+                    <span className="text-xs font-bold text-gray-900 dark:text-white">{matchPercentage === 100 ? 'Tutto pronto' : 'Quasi pronto'}</span>
                 </div>
             </div>
 
@@ -46,8 +50,8 @@ export function RecipeFeaturedCard({
                     {/* Ingredient Match Bar */}
                     <div className="flex flex-col gap-1.5">
                         <div className="flex justify-between text-xs font-semibold">
-                            <span className="text-primary">{matchPercentage}% Ingredients Available</span>
-                            <span className="text-gray-500">{missingIngredients.length > 0 ? `Missing: ${missingIngredients.join(', ')}` : 'You have everything!'}</span>
+                            <span className="text-primary">{matchPercentage}% ingredienti pronti</span>
+                            <span className="text-gray-500">{missingIngredients.length > 0 ? `Manca: ${missingIngredients.join(', ')}` : 'Hai tutto!'}</span>
                         </div>
                         <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
                             <div className="bg-primary h-2 rounded-full" style={{ width: `${matchPercentage}%` }}></div>
@@ -67,7 +71,7 @@ export function RecipeFeaturedCard({
                         </div>
                         <button className="bg-primary hover:bg-primary-dark text-white px-6 py-2.5 rounded-full text-sm font-bold transition-all shadow-lg shadow-primary/25 flex items-center gap-2 active:scale-95">
                             <span className="material-symbols-outlined text-[18px]">skillet</span>
-                            Cook Now
+                            Cucina ora
                         </button>
                     </div>
                 </div>

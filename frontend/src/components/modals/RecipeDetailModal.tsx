@@ -211,7 +211,7 @@ export default function RecipeDetailModal({ recipe, onClose }: RecipeDetailModal
                         onClick={handleStartCooking}
                         disabled={ingredientsStatus.filter(i => i.inStock).length === 0}
                     >
-                        Inizia a Cucinare
+                        Cucina ora
                     </Button>
                 </div>
 

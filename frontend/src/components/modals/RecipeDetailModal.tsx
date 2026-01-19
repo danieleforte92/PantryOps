@@ -1,10 +1,10 @@
-import { Check, X, Clock, Users, ShoppingCart } from 'lucide-react';
-import { useCurrentStock, useAddShoppingItem } from '../../hooks/useApi';
+import { Check, X, Clock, Users } from 'lucide-react';
+import { useRecipePreview, useCookRecipe } from '../../hooks/useApi';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
-import { useMemo, useState } from 'react';
-import CookConfirmationModal, { CookItem } from './CookConfirmationModal';
+import { useState } from 'react';
+import CookConfirmationModal from './CookConfirmationModal';
 
 interface Recipe {
     id: string;
@@ -23,84 +23,23 @@ interface RecipeDetailModalProps {
     onClose: () => void;
 }
 
-// Mock ingredients for the demo since our recipe list was light on data
-const MOCK_INGREDIENTS: Record<string, { name: string; quantity: string }[]> = {
-    '1': [ // Pasta al Pomodoro
-        { name: 'Pasta', quantity: '200g' },
-        { name: 'Passata di Pomodoro', quantity: '300g' },
-        { name: 'Olio EVO', quantity: 'qb' },
-        { name: 'Basilico', quantity: 'fork' }
-    ],
-    '2': [ // Risotto
-        { name: 'Riso Carnaroli', quantity: '300g' },
-        { name: 'Funghi Porcini', quantity: '200g' },
-        { name: 'Brodo Vegetale', quantity: '1L' },
-        { name: 'Burro', quantity: '50g' }
-    ]
-};
+// MOCK_INGREDIENTS removed as they are now handled by the backend preview endpoint.
 
 export default function RecipeDetailModal({ recipe, onClose }: RecipeDetailModalProps) {
-    const { data: stockData } = useCurrentStock();
-    const [addedItems, setAddedItems] = useState<Set<string>>(new Set());
-    const [cookingItems, setCookingItems] = useState<CookItem[] | null>(null);
-
-    const ingredients = useMemo(() => {
-        return recipe.ingredients || MOCK_INGREDIENTS[recipe.id] || [
-            { name: 'Ingrediente misterioso', quantity: '1' },
-            { name: 'Amore', quantity: 'tanto' }
-        ];
-    }, [recipe]);
-
-    const ingredientsStatus = useMemo(() => {
-        if (!stockData?.stock) return ingredients.map(i => ({ ...i, inStock: false }));
-
-        return ingredients.map(ing => {
-            // Simple name matching for MVP
-            const stockItem = stockData.stock.find(s =>
-                s.product.name.toLowerCase().includes(ing.name.toLowerCase()) ||
-                ing.name.toLowerCase().includes(s.product.name.toLowerCase())
-            );
-            return {
-                ...ing,
-                inStock: !!stockItem && stockItem.quantity > 0,
-                stockQuantity: stockItem?.quantity,
-                stockUnit: stockItem?.product.stockUnit.abbreviation
-            };
-        });
-    }, [ingredients, stockData]);
-
-    const handleAddToShoppingList = async (ingredientName: string) => {
-        // For MVP we just assume we can add by name -> creating a mock product ID would be complex here
-        // In a real app we'd search for the product ID first.
-        // For now, we'll just toggle the visual state to show interaction
-        setAddedItems(prev => new Set(prev).add(ingredientName));
-    };
-
-    const missingCount = ingredientsStatus.filter(i => !i.inStock).length;
+    const [servings, setServings] = useState(recipe.servings || 1);
+    const { data: preview, isLoading } = useRecipePreview(recipe.id, servings);
+    const { mutateAsync: cookRecipe } = useCookRecipe();
+    const [cooking, setCooking] = useState(false);
 
     const handleStartCooking = () => {
-        const toCook: CookItem[] = ingredientsStatus
-            .filter(ing => ing.inStock)
-            .map(ing => {
-                // Find actual stock item again to get ID and correct unit
-                const stockItem = stockData?.stock.find(s =>
-                    s.product.name.toLowerCase().includes(ing.name.toLowerCase()) ||
-                    ing.name.toLowerCase().includes(s.product.name.toLowerCase())
-                );
-
-                return {
-                    productId: stockItem!.productId,
-                    name: stockItem!.product.name,
-                    imageUrl: stockItem!.product.imageUrl,
-                    quantity: 1, // Defaulting to 1 unit for simplified MVP cooking
-                    unit: stockItem!.product.stockUnit.abbreviation
-                };
-            });
-
-        if (toCook.length > 0) {
-            setCookingItems(toCook);
-        }
+        setCooking(true);
     };
+
+    const confirmCook = async () => {
+        await cookRecipe({ recipeId: recipe.id, servings });
+    };
+
+    if (isLoading) return null; // Or skeleton
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 animate-in fade-in duration-200" onClick={onClose}>
@@ -133,10 +72,10 @@ export default function RecipeDetailModal({ recipe, onClose }: RecipeDetailModal
                             {recipe.tags?.map((tag: string) => (
                                 <Badge key={tag} variant="secondary" className="bg-white/20 text-white border-none backdrop-blur-md">{tag}</Badge>
                             ))}
-                            {missingCount === 0 ? (
+                            {preview?.canCook ? (
                                 <Badge variant="success" className="shadow-lg backdrop-blur-md border-none">Tutto in dispensa!</Badge>
                             ) : (
-                                <Badge variant="warning" className="shadow-lg backdrop-blur-md border-none">Mancano {missingCount} ingredienti</Badge>
+                                <Badge variant="warning" className="shadow-lg backdrop-blur-md border-none">Mancano ingredienti</Badge>
                             )}
                         </div>
                         <h2 className="text-3xl font-bold text-white leading-tight shadow-black drop-shadow-md">{recipe.title}</h2>
@@ -169,35 +108,23 @@ export default function RecipeDetailModal({ recipe, onClose }: RecipeDetailModal
                         <div>
                             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Ingredienti</h3>
                             <div className="space-y-3">
-                                {ingredientsStatus.map((ing, idx) => (
-                                    <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-zinc-800/50 border border-gray-100 dark:border-white/5">
+                                {preview?.ingredients.map((ing: any) => (
+                                    <div key={ing.productId} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-zinc-800/50 border border-gray-100 dark:border-white/5">
                                         <div className="flex items-center gap-3">
                                             <div className={`
                                         w-8 h-8 rounded-full flex items-center justify-center shrink-0
-                                        ${ing.inStock ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'}
+                                        ${ing.missing === 0 ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'}
                                     `}>
-                                                {ing.inStock ? <Check size={16} strokeWidth={3} /> : <X size={16} strokeWidth={3} />}
+                                                {ing.missing === 0 ? <Check size={16} strokeWidth={3} /> : <X size={16} strokeWidth={3} />}
                                             </div>
                                             <div>
-                                                <p className="font-medium text-gray-900 dark:text-white">{ing.name}</p>
+                                                <p className="font-medium text-gray-900 dark:text-white">{ing.productName}</p>
                                                 <p className="text-xs text-gray-500">
-                                                    Richiesto: {ing.quantity}
-                                                    {ing.inStock && ` • Hai: ${ing.stockQuantity} ${ing.stockUnit}`}
+                                                    Richiesto: {ing.required} {ing.unit}
+                                                    {ing.missing === 0 && ` • Hai: ${ing.available} ${ing.unit}`}
                                                 </p>
                                             </div>
                                         </div>
-
-                                        {!ing.inStock && (
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => handleAddToShoppingList(ing.name)}
-                                                disabled={addedItems.has(ing.name)}
-                                                className={`h-9 px-3 ${addedItems.has(ing.name) ? 'bg-green-50 text-green-600 border-green-200' : ''}`}
-                                            >
-                                                {addedItems.has(ing.name) ? <Check size={16} /> : <ShoppingCart size={16} />}
-                                            </Button>
-                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -209,18 +136,23 @@ export default function RecipeDetailModal({ recipe, onClose }: RecipeDetailModal
                     <Button
                         className="w-full h-14 text-lg font-bold shadow-xl shadow-primary/20"
                         onClick={handleStartCooking}
-                        disabled={ingredientsStatus.filter(i => i.inStock).length === 0}
+                        disabled={!preview?.canCook}
                     >
                         Cucina ora
                     </Button>
                 </div>
 
-                {/* Cook Confirmation Modal */}
-                {cookingItems && (
+                {/* Cook Confirmation Modal Integration */}
+                {cooking && (
                     <CookConfirmationModal
-                        items={cookingItems}
-                        onClose={() => setCookingItems(null)}
-                        onSuccess={() => onClose()}
+                        items={preview?.ingredients.map((i: any) => ({
+                            productId: i.productId,
+                            name: i.productName,
+                            quantity: i.required,
+                            unit: i.unit,
+                        })) || []}
+                        onClose={() => setCooking(false)}
+                        onSuccess={confirmCook}
                         title={`Cucina: ${recipe.title}`}
                     />
                 )}

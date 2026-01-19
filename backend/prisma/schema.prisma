@@ -23,6 +23,7 @@ model Household {
   transactions  StockTransaction[]
   currentStock  CurrentStock[]
   shoppingItems ShoppingListItem[]
+  recipes       Recipe[]
 }
 
 model User {
@@ -61,8 +62,9 @@ model Unit {
   name         String @unique
   abbreviation String
 
-  productsStock    Product[] @relation("StockUnit")
-  productsPurchase Product[] @relation("PurchaseUnit")
+  productsStock     Product[]          @relation("StockUnit")
+  productsPurchase  Product[]          @relation("PurchaseUnit")
+  recipeIngredients RecipeIngredient[]
 }
 
 model Location {
@@ -117,11 +119,12 @@ model Product {
   purchaseUnit    Unit      @relation("PurchaseUnit", fields: [purchaseUnitId], references: [id])
   defaultLocation Location? @relation(fields: [defaultLocationId], references: [id])
 
-  barcodes      Barcode[]
-  stockLots     StockLot[]
-  transactions  StockTransaction[]
-  currentStock  CurrentStock?
-  shoppingItems ShoppingListItem[]
+  barcodes          Barcode[]
+  stockLots         StockLot[]
+  transactions      StockTransaction[]
+  currentStock      CurrentStock?
+  shoppingItems     ShoppingListItem[]
+  recipeIngredients RecipeIngredient[]
 
   @@unique([householdId, name])
 }
@@ -246,4 +249,47 @@ model ShoppingListItem {
 
   @@unique([householdId, productId])
   @@index([householdId, purchased])
+}
+
+// ============================================
+// RECIPES & COOKING
+// ============================================
+
+model Recipe {
+  id          String @id @default(uuid())
+  householdId String
+  name        String
+  servings    Int    @default(1)
+
+  // metadata
+  source    RecipeSource @default(MANUAL)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  household   Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  ingredients RecipeIngredient[]
+
+  @@unique([householdId, name])
+}
+
+enum RecipeSource {
+  MANUAL
+  GENERATED
+}
+
+model RecipeIngredient {
+  id String @id @default(uuid())
+
+  recipeId String
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  quantity Float
+  unitId   String
+  unit     Unit   @relation(fields: [unitId], references: [id])
+
+  @@index([recipeId])
+  @@index([productId])
 }

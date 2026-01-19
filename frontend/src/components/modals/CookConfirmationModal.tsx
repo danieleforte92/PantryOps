@@ -26,14 +26,19 @@ export default function CookConfirmationModal({ items, onClose, onSuccess, title
     const handleConfirm = async () => {
         setIsProcessing(true);
         try {
-            // Processing items sequentially or in parallel - keeping it robust with sequential for now to handle potential errors better
-            for (const item of items) {
-                await consumeMutation.mutateAsync({
-                    productId: item.productId,
-                    quantity: item.quantity
-                });
+            if (onSuccess) {
+                // If a success handler is provided, we assume it handles the actual API call
+                // especially for unified recipe cooking.
+                await (onSuccess as any)();
+            } else {
+                // Individual items loop (legacy/Fallback)
+                for (const item of items) {
+                    await consumeMutation.mutateAsync({
+                        productId: item.productId,
+                        quantity: item.quantity
+                    });
+                }
             }
-            onSuccess?.();
             onClose();
         } catch (error) {
             console.error('Failed to process cook action:', error);

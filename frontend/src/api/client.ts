@@ -130,6 +130,36 @@ export const queriesApi = {
         fetchApi<{ suggestions: ShoppingSuggestion[]; manualItems: ShoppingListItem[]; all: ShoppingListItem[] }>(`/queries/shopping-list?householdId=${householdId}`),
 };
 
+// Recipes
+export const recipesApi = {
+    getAll: (householdId: string) =>
+        fetchApi<Recipe[]>(`/recipes?householdId=${householdId}`),
+
+    getById: (id: string) =>
+        fetchApi<Recipe>(`/recipes/${id}`),
+
+    create: (data: any) =>
+        fetchApi<Recipe>('/recipes', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    preview: (id: string, servings?: number) =>
+        fetchApi<RecipePreview>(`/recipes/${id}/preview${servings ? `?servings=${servings}` : ''}`),
+
+    cook: (id: string, servings?: number) =>
+        fetchApi<{ success: boolean }>(`/recipes/${id}/cook`, {
+            method: 'POST',
+            body: JSON.stringify({ servings }),
+        }),
+};
+
+// Suggestions
+export const suggestionsApi = {
+    getToday: (householdId: string) =>
+        fetchApi<TodaySuggestion[]>(`/suggestions/today?householdId=${householdId}`),
+};
+
 // Types
 export interface User {
     id: string;
@@ -277,4 +307,42 @@ export interface ShoppingSuggestion {
     purchaseQuantity: number;
     purchaseUnit: string;
     isSuggestion: true;
+}
+
+export interface Recipe {
+    id: string;
+    name: string;
+    servings: number;
+    source: 'MANUAL' | 'GENERATED';
+    ingredients?: RecipeIngredient[];
+}
+
+export interface RecipeIngredient {
+    id: string;
+    productId: string;
+    product: Product;
+    quantity: number;
+    unit: Unit;
+}
+
+export interface RecipePreviewItem {
+    productId: string;
+    productName: string;
+    required: number;
+    available: number;
+    missing: number;
+    unit: string;
+}
+
+export interface RecipePreview {
+    ingredients: RecipePreviewItem[];
+    canCook: boolean;
+}
+
+export interface TodaySuggestion {
+    id: string;
+    title: string;
+    matchPercentage: number;
+    missingIngredientsCount: number;
+    usesExpiringItems: boolean;
 }

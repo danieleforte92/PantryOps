@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { queriesApi, stockApi, productsApi } from '../api/client';
+import { queriesApi, stockApi, productsApi, shoppingApi, recipesApi, suggestionsApi } from '../api/client';
 
 // Get current user context (for MVP, stored in localStorage)
 export function useAuth() {
@@ -231,6 +231,56 @@ export function useCreateProduct() {
             productsApi.create({ ...data, householdId: household.id }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['products'] });
+        },
+    });
+}
+
+// Today's Suggestions for "Oggi" Dashboard
+export function useTodaySuggestions() {
+    const { household } = useAuth();
+
+    return useQuery({
+        queryKey: ['today-suggestions', household?.id],
+        queryFn: () => suggestionsApi.getToday(household.id),
+        enabled: !!household?.id,
+    });
+}
+
+// All Recipes
+export function useRecipes() {
+    const { household } = useAuth();
+
+    return useQuery({
+        queryKey: ['recipes', household?.id],
+        queryFn: () => recipesApi.getAll(household.id),
+        enabled: !!household?.id,
+    });
+}
+
+// Recipe Detail & Preview
+export function useRecipePreview(recipeId: string, servings?: number) {
+    const { household } = useAuth();
+
+    return useQuery({
+        queryKey: ['recipe-preview', recipeId, servings],
+        queryFn: () => recipesApi.preview(recipeId, servings),
+        enabled: !!household?.id && !!recipeId,
+    });
+}
+
+// Cook Recipe Mutation
+export function useCookRecipe() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ recipeId, servings }: { recipeId: string; servings?: number }) =>
+            recipesApi.cook(recipeId, servings),
+        onSuccess: () => {
+            // Invalidate everything stock related
+            queryClient.invalidateQueries({ queryKey: ['current-stock'] });
+            queryClient.invalidateQueries({ queryKey: ['expiring'] });
+            queryClient.invalidateQueries({ queryKey: ['low-stock'] });
+            queryClient.invalidateQueries({ queryKey: ['today-suggestions'] });
         },
     });
 }

@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { useExpiringItems, useLowStock } from '../hooks/useApi';
+import { useExpiringItems, useLowStock, useTodaySuggestions } from '../hooks/useApi';
 import { RecipeFeaturedCard } from '../components/ui/RecipeFeaturedCard';
 import { FridgeWatchPanel } from '../components/ui/FridgeWatchPanel';
 import { LowStockPanel } from '../components/ui/LowStockPanel';
@@ -9,18 +9,26 @@ import { useState } from 'react';
 export default function DashboardPage() {
     const { data: expiringData } = useExpiringItems();
     const { data: lowStockData } = useLowStock();
+    const { data: suggestions } = useTodaySuggestions();
     const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
 
-    // Mock Recipe Data tailored to PantryPal example
-    const featuredRecipe = {
-        title: "Roasted Tomato Basil Soup",
-        description: "A comforting, classic soup made with vine-ripened tomatoes and fresh basil. Perfect for using up those soft tomatoes.",
-        matchPercentage: 90,
-        time: "20 min",
-        calories: 350,
-        missingIngredients: ["Cream"],
-        imageUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuCDKw2NGL81A4U9dQARPmHNyN1DXUwHpFNWT91cos9jU6TwJOtA03fworuYeP3rZ61gD6p9eE7F6iLnAU39hZmZXRWgYJbLSHPwHSgrLnkgIFh852Dy2_U217ublg6mAAJRln7RO8hXzEmihqQaNRqsJXtECTzFKJi39FsXU-h0q2iXwnvVElLHA8QDsh7P9FoAZIeJZBnwsFAkFy7kfOYCLoUUpQXvJbG8DCmd9CfFJzq4qMzqROOlSH9pBVkbpWBm2-Zu5Dt_Zg"
-    };
+    // Get the first suggestion as the featured recipe
+    const topSuggestion = suggestions?.[0];
+
+    const featuredRecipe = topSuggestion ? {
+        id: topSuggestion.id,
+        title: topSuggestion.title,
+        description: topSuggestion.usesExpiringItems
+            ? "Ottimale per consumare prodotti in scadenza e ridurre gli sprechi."
+            : "Una ricetta bilanciata basata sulla tua dispensa attuale.",
+        matchPercentage: topSuggestion.matchPercentage,
+        time: "25 min", // Mocked as per "no cooking times in DB" rule
+        calories: 450, // Mocked
+        missingIngredients: topSuggestion.missingIngredientsCount > 0
+            ? [`${topSuggestion.missingIngredientsCount} ingredienti mancanti`]
+            : [],
+        imageUrl: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=600" // Decent fallback
+    } : null;
 
     // Flatten all expiring items to display in the Fridge Watch panel
     const allExpiringItems = [
@@ -65,10 +73,18 @@ export default function DashboardPage() {
                         <button className="text-primary text-sm font-bold hover:underline">Vedi tutte le combinazioni</button>
                     </div>
 
-                    <RecipeFeaturedCard
-                        {...featuredRecipe}
-                        onClick={() => setSelectedRecipe(featuredRecipe)}
-                    />
+                    {featuredRecipe ? (
+                        <RecipeFeaturedCard
+                            {...featuredRecipe}
+                            onClick={() => setSelectedRecipe(featuredRecipe)}
+                        />
+                    ) : (
+                        <div className="p-12 rounded-[2rem] border-2 border-dashed border-gray-100 dark:border-white/5 flex flex-col items-center justify-center text-center bg-gray-50/50 dark:bg-white/2">
+                            <span className="material-symbols-outlined text-gray-300 text-5xl mb-4">restaurant</span>
+                            <h3 className="text-lg font-bold text-gray-400">Nessun suggerimento per oggi</h3>
+                            <p className="text-sm text-gray-400">Aggiungi più prodotti o ricette per vedere i consigli.</p>
+                        </div>
+                    )}
 
                     {/* Secondary Suggestions Grid Placeholder - Data pending backend AI */}
                     <div className="p-8 rounded-[2rem] border-2 border-dashed border-gray-100 dark:border-white/5 flex flex-col items-center justify-center text-center bg-gray-50/50 dark:bg-white/2">

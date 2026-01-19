@@ -7,6 +7,8 @@ import { productRoutes } from './routes/products';
 import { stockRoutes } from './routes/stock';
 import { queryRoutes } from './routes/queries';
 import { shoppingRoutes } from './routes/shopping';
+import { recipeRoutes } from './routes/recipes';
+import { suggestionRoutes } from './routes/suggestions';
 
 const app = Fastify({
     logger: true,
@@ -33,6 +35,8 @@ app.register(productRoutes, { prefix: '/api/products' });
 app.register(stockRoutes, { prefix: '/api/stock' });
 app.register(queryRoutes, { prefix: '/api/queries' });
 app.register(shoppingRoutes, { prefix: '/api/shopping' });
+app.register(recipeRoutes, { prefix: '/api/recipes' });
+app.register(suggestionRoutes, { prefix: '/api/suggestions' });
 
 // Start server
 const start = async () => {

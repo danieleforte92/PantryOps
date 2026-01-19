@@ -1,15 +1,20 @@
-import { useCurrentStock, useConsume } from '../hooks/useApi';
+import { useCurrentStock, useConsume, usePurchase } from '../hooks/useApi';
 import { Package, Minus, Plus, Search } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { Card } from '../components/ui/Card';
 import { StockStatusBadge, type StockStatus } from '../components/ui/StockStatusBadge';
 import { differenceInDays, parseISO } from 'date-fns';
+import EditStockItemModal from '../components/modals/EditStockItemModal';
 
 export default function StockPage() {
     const { data, isLoading } = useCurrentStock();
     const consumeMutation = useConsume();
-    const [consumingId, setConsumingId] = useState<string | null>(null);
+    const purchaseMutation = usePurchase();
+
+    // Track loading states locally to avoid UI jitter using mutation.isPending which is global
+    const [processingId, setProcessingId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [editingItem, setEditingItem] = useState<typeof data.stock[0] | null>(null);
 
     const stockItems = useMemo(() => {
         if (!data?.stock) return [];
@@ -18,14 +23,31 @@ export default function StockPage() {
         );
     }, [data, searchTerm]);
 
-    const handleConsume = async (productId: string, amount: number = 1) => {
-        setConsumingId(productId);
+    const handleConsume = async (e: React.MouseEvent, productId: string, amount: number = 1) => {
+        e.stopPropagation();
+        setProcessingId(`consume-${productId}`);
         try {
             await consumeMutation.mutateAsync({ productId, quantity: amount });
         } catch (error) {
             console.error('Consume failed:', error);
         } finally {
-            setConsumingId(null);
+            setProcessingId(null);
+        }
+    };
+
+    const handleIncrement = async (e: React.MouseEvent, productId: string) => {
+        e.stopPropagation();
+        setProcessingId(`add-${productId}`);
+        try {
+            await purchaseMutation.mutateAsync({
+                productId,
+                quantity: 1,
+                // We don't specify location/date here for quick increment, backend presumably uses default
+            });
+        } catch (error) {
+            console.error('Increment failed:', error);
+        } finally {
+            setProcessingId(null);
         }
     };
 
@@ -51,7 +73,7 @@ export default function StockPage() {
     return (
         <div className="animate-fade-in pb-24">
             <header className="mb-8 p-6 bg-gradient-to-br from-background-light to-white dark:from-background-dark dark:to-zinc-900 rounded-3xl border border-white/5 shadow-sm">
-                <h1 className="text-3xl font-bold mb-2">Dispensa</h1>
+                <h1 className="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Dispensa</h1>
                 <p className="text-gray-500">{data?.stock.length || 0} prodotti disponibili</p>
 
                 {/* Search Bar */}
@@ -60,7 +82,7 @@ export default function StockPage() {
                     <input
                         type="text"
                         placeholder="Cerca nella dispensa..."
-                        className="w-full bg-white dark:bg-zinc-800 border-none rounded-2xl py-4 pl-12 pr-4 shadow-sm focus:ring-2 focus:ring-primary outline-none text-lg"
+                        className="w-full bg-white dark:bg-zinc-800 border-none rounded-2xl py-4 pl-12 pr-4 shadow-sm focus:ring-2 focus:ring-primary outline-none text-lg text-gray-900 dark:text-white"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
@@ -72,7 +94,7 @@ export default function StockPage() {
                     <div className="w-20 h-20 bg-gray-100 dark:bg-zinc-800 rounded-full flex items-center justify-center mx-auto mb-6">
                         <Package size={40} className="text-gray-400" />
                     </div>
-                    <h3 className="text-xl font-bold mb-2">Dispensa Vuota</h3>
+                    <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">Dispensa Vuota</h3>
                     <p className="text-gray-500">Scansiona i prodotti per riempire la tua dispensa digitale.</p>
                 </div>
             ) : (
@@ -82,7 +104,11 @@ export default function StockPage() {
                         const status = getStockStatus(item.quantity, 2); // Mock minStock=2
 
                         return (
-                            <Card key={item.productId} className="p-4 flex items-center gap-4 bg-white dark:bg-zinc-900/50 border-gray-100 dark:border-white/5">
+                            <Card
+                                key={item.productId}
+                                className="p-4 flex items-center gap-4 bg-white dark:bg-zinc-900/50 border-gray-100 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer"
+                                onClick={() => setEditingItem(item)}
+                            >
                                 {item.product.imageUrl ? (
                                     <img
                                         src={item.product.imageUrl}
@@ -90,8 +116,8 @@ export default function StockPage() {
                                         className="w-16 h-16 rounded-2xl object-cover shadow-sm bg-white"
                                     />
                                 ) : (
-                                    <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center">
-                                        <Package size={28} className="text-gray-400" />
+                                    <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-gray-400">
+                                        <Package size={28} />
                                     </div>
                                 )}
 
@@ -106,24 +132,33 @@ export default function StockPage() {
                                 </div>
 
                                 <div className="flex flex-col items-center gap-2">
-                                    <div className="flex items-center gap-3 bg-gray-50 dark:bg-zinc-800 rounded-xl p-1">
+                                    <div className="flex items-center gap-1 bg-gray-50 dark:bg-zinc-800 rounded-xl p-1" onClick={e => e.stopPropagation()}>
                                         <button
                                             className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white dark:hover:bg-zinc-700 text-gray-600 dark:text-gray-400 transition-all disabled:opacity-50"
-                                            onClick={() => handleConsume(item.productId, 1)}
-                                            disabled={consumingId === item.productId || item.quantity <= 0}
+                                            onClick={(e) => handleConsume(e, item.productId, 1)}
+                                            disabled={processingId === `consume-${item.productId}` || item.quantity <= 0}
                                         >
-                                            {consumingId === item.productId ? (
+                                            {processingId === `consume-${item.productId}` ? (
                                                 <div className="w-4 h-4 border-2 border-gray-400 border-t-gray-600 rounded-full animate-spin" />
                                             ) : (
                                                 <Minus size={16} />
                                             )}
                                         </button>
-                                        <span className="font-bold w-4 text-center text-sm">{Math.floor(item.quantity)}</span>
+
+                                        <span className="font-bold w-6 text-center text-sm text-gray-900 dark:text-white">
+                                            {Math.floor(item.quantity)}
+                                        </span>
+
                                         <button
-                                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white dark:hover:bg-zinc-700 text-primary transition-all"
-                                            onClick={() => {/* TODO: Add logic */ }}
+                                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white dark:hover:bg-zinc-700 text-primary transition-all disabled:opacity-50"
+                                            onClick={(e) => handleIncrement(e, item.productId)}
+                                            disabled={processingId === `add-${item.productId}`}
                                         >
-                                            <Plus size={16} />
+                                            {processingId === `add-${item.productId}` ? (
+                                                <div className="w-4 h-4 border-2 border-primary border-t-primary-dark rounded-full animate-spin" />
+                                            ) : (
+                                                <Plus size={16} />
+                                            )}
                                         </button>
                                     </div>
                                 </div>
@@ -131,6 +166,14 @@ export default function StockPage() {
                         );
                     })}
                 </div>
+            )}
+
+            {/* Edit Modal */}
+            {editingItem && (
+                <EditStockItemModal
+                    item={editingItem}
+                    onClose={() => setEditingItem(null)}
+                />
             )}
         </div>
     );

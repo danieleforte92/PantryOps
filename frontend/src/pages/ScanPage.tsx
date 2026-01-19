@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Html5Qrcode } from 'html5-qrcode';
 import { useScanProduct, useCreateProduct, usePurchase, useUnits, useLocations } from '../hooks/useApi';
 import { X, Check, Plus, Package, Search } from 'lucide-react';
@@ -12,6 +13,7 @@ import type { ScanResult } from '../api/client';
 type ScanState = 'scanning' | 'found' | 'new' | 'adding' | 'manual';
 
 export default function ScanPage() {
+    const navigate = useNavigate();
     const [scanState, setScanState] = useState<ScanState>('scanning');
     const [scanResult, setScanResult] = useState<ScanResult | null>(null);
     const [barcode, setBarcode] = useState('');
@@ -62,9 +64,13 @@ export default function ScanPage() {
                     },
                     (decodedText) => {
                         if (isMounted) {
+                            // Valid scan: Pause camera immediately to prevent multiple triggers
+                            try {
+                                scanner.pause(true);
+                            } catch (e) {
+                                console.warn('Failed to pause scanner', e);
+                            }
                             handleBarcodeScan(decodedText);
-                            // Don't pause here automatically to avoid UI freeze/state complexity
-                            // blocking scan is handled by scanState
                         }
                     },
                     () => { /* ignore errors */ }
@@ -81,20 +87,20 @@ export default function ScanPage() {
 
         return () => {
             isMounted = false;
-            // Cleanup: stop if running, clear if not
             if (scanner.isScanning) {
                 scanner.stop().catch(console.error).finally(() => {
-                    // @ts-ignore - clear() might be void or Promise depending on version
+                    // @ts-ignore
                     try { scanner.clear(); } catch (e) { }
                 });
             } else {
-                // If not scanning (e.g. failed start), just clear
                 // @ts-ignore
                 try { scanner.clear(); } catch (e) { /* ignore */ }
             }
         };
     }, []);
 
+    // Fix stale closure issue: Scanner callback runs in a closure created on mount.
+    // We rely on state updates to trigger effects rather than doing it all in the callback.
     const handleBarcodeScan = async (code: string) => {
         setBarcode(code);
         setError('');
@@ -103,18 +109,13 @@ export default function ScanPage() {
             const result = await scanMutation.mutateAsync(code);
             setScanResult(result);
             setLastScannedItems(prev => {
-                // Determine if we should add it (avoid duplicates if same as immediate last)
                 if (prev[0]?.barcode === code) return prev;
-                return [result, ...prev].slice(0, 5); // Keep last 5
+                return [result, ...prev].slice(0, 5);
             });
 
             if (result.status === 'KNOWN') {
                 setScanState('found');
-                // Pre-fill location
-                setPurchaseData((prev) => ({
-                    ...prev,
-                    locationId: result.product?.defaultLocation?.id || locationsData?.locations[0]?.id || '',
-                }));
+                // Location setting moved to useEffect
             } else if (result.status === 'SUGGESTED') {
                 setScanState('new');
                 setNewProduct({
@@ -131,10 +132,23 @@ export default function ScanPage() {
                 setScanState('new');
                 setScanResult({ status: 'UNKNOWN', barcode: code });
             } else {
+                console.error("Scan Error:", err);
                 setError(err.message || 'Scan failed');
             }
         }
     };
+
+    // Effect to set default location when product is found or locations load
+    useEffect(() => {
+        if (scanState === 'found' && scanResult?.product && !purchaseData.locationId) {
+            const defaultLoc = scanResult.product.defaultLocation?.id || locationsData?.locations[0]?.id || '';
+            if (defaultLoc) {
+                setPurchaseData(prev => ({ ...prev, locationId: defaultLoc }));
+            }
+        } else if (scanState === 'new' && !newProduct.defaultLocationId && locationsData?.locations.length) {
+            setNewProduct(prev => ({ ...prev, defaultLocationId: locationsData.locations[0].id }));
+        }
+    }, [scanState, scanResult, locationsData, purchaseData.locationId, newProduct.defaultLocationId]);
 
     const handleCreateProduct = async () => {
         if (!newProduct.name || !newProduct.stockUnitId) {
@@ -159,6 +173,7 @@ export default function ScanPage() {
                 locationId: newProduct.defaultLocationId,
             }));
         } catch (err: any) {
+            console.error("Create Product Error:", err);
             setError(err.message || 'Create failed');
         }
     };
@@ -180,6 +195,7 @@ export default function ScanPage() {
             // Reset and continue scanning
             resetScanner();
         } catch (err: any) {
+            console.error("Purchase Error:", err);
             setError(err.message || 'Purchase failed');
             setScanState('found');
         }
@@ -195,7 +211,11 @@ export default function ScanPage() {
         setNewProduct({ name: '', stockUnitId: '', purchaseUnitId: '', defaultLocationId: '' });
 
         if (scannerRef.current) {
-            scannerRef.current.resume();
+            try {
+                scannerRef.current.resume();
+            } catch (err) {
+                console.log('Scanner resume skipped/failed (stateless check):', err);
+            }
         }
     };
 
@@ -206,8 +226,8 @@ export default function ScanPage() {
     };
 
     return (
-        <div className="h-screen w-screen bg-black relative overflow-hidden font-display text-white">
-            {/* 1. Camera Layer - Always rendered to maintain state */}
+        <div className="fixed inset-0 z-[100] bg-black overflow-hidden font-display text-white">
+            {/* 1. Camera Layer */}
             <div className="absolute inset-0 z-0 bg-black">
                 {!cameraAvailable && (
                     <div className="absolute inset-0 flex items-center justify-center bg-background-dark z-20">
@@ -231,124 +251,133 @@ export default function ScanPage() {
 
             {/* 2. Scanning UI Overlay */}
             {scanState === 'scanning' && (
-                <div className="absolute inset-0 z-10 flex flex-col justify-between pointer-events-none">
-                    {/* Header */}
-                    <div className="p-6 flex justify-between items-start pointer-events-auto">
-                        <button onClick={() => window.history.back()} className="flex items-center justify-center size-12 rounded-xl bg-black/40 backdrop-blur-md border border-white/10 hover:bg-black/60 transition-all text-white">
-                            <span className="material-symbols-outlined">arrow_back</span>
-                        </button>
-
-                        <div className="flex gap-3">
+                <>
+                    <div className="absolute inset-0 z-10 pointer-events-none">
+                        {/* Header */}
+                        <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-start pointer-events-auto z-20">
                             <button
-                                className="flex items-center gap-2 h-12 px-4 rounded-xl bg-black/40 backdrop-blur-md border border-white/10 hover:bg-black/60 transition-all text-white"
-                                onClick={() => setScanState('manual')}
+                                onClick={() => navigate('/')}
+                                className="flex items-center justify-center size-12 rounded-xl bg-black/40 backdrop-blur-md border border-white/10 hover:bg-black/60 hover:border-white/20 transition-all text-white shadow-lg active:scale-95 group"
                             >
-                                <span className="material-symbols-outlined">keyboard</span>
-                                <span className="text-sm font-semibold hidden sm:block">Manuale</span>
+                                <span className="material-symbols-outlined group-hover:text-white transition-colors">arrow_back</span>
                             </button>
+
+                            <div className="flex gap-3">
+                                <button
+                                    className="flex items-center justify-center size-12 rounded-xl bg-black/40 backdrop-blur-md border border-white/10 hover:bg-black/60 hover:border-white/20 transition-all text-white shadow-lg active:scale-95 group"
+                                    title="Toggle Flashlight"
+                                    onClick={() => {/* Toggle flashlight logic */ }}
+                                >
+                                    <span className="material-symbols-outlined text-white/80 group-hover:text-yellow-300 transition-colors">flash_on</span>
+                                </button>
+
+                                <button
+                                    className="flex items-center gap-2 h-12 px-4 rounded-xl bg-black/40 backdrop-blur-md border border-white/10 hover:bg-black/60 hover:border-white/20 transition-all text-white shadow-lg active:scale-95 group"
+                                    onClick={() => setScanState('manual')}
+                                >
+                                    <span className="material-symbols-outlined text-white/80 group-hover:text-primary transition-colors">keyboard</span>
+                                    <span className="text-sm font-semibold hidden sm:block">Manuale</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Center Reticle */}
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                            <ScannerReticle isScanning={!scanResult} />
                         </div>
                     </div>
 
-                    {/* Center Reticle */}
-                    <div className="flex-1 flex flex-col items-center justify-center -mt-20">
-                        <ScannerReticle isScanning={!scanResult} />
+                    {/* LastScannedDrawer */}
+                    <div className="absolute bottom-0 left-0 right-0 z-20 pointer-events-auto">
+                        <LastScannedDrawer
+                            scannedItems={lastScannedItems}
+                            onItemClick={(item) => {
+                                setScanResult(item);
+                                if (item.status === 'KNOWN') setScanState('found');
+                                else setScanState('new');
+                            }}
+                            onFinish={() => navigate('/')}
+                        />
                     </div>
-
-                    {/* LastScannedDrawer sits at bottom, absolute positioned */}
-                    <LastScannedDrawer
-                        scannedItems={lastScannedItems}
-                        onItemClick={(item) => {
-                            setScanResult(item);
-                            if (item.status === 'KNOWN') setScanState('found');
-                            else setScanState('new');
-                        }}
-                    />
-
-                    {/* Spacer for bottom safe area if needed, though drawer is absolute */}
-                    <div className="h-24 pointer-events-none"></div>
-                </div>
+                </>
             )}
 
-            {/* 3. Product Found Modal */
-                scanState === 'found' && scanResult?.product && (
-                    <div className="absolute inset-x-0 bottom-0 z-20 bg-background-light dark:bg-zinc-900 rounded-t-3xl p-6 shadow-2xl animate-slide-up">
-                        <div className="w-12 h-1.5 bg-gray-300 dark:bg-zinc-700 rounded-full mx-auto mb-6" />
+            {/* 3. Product Found Modal */}
+            {scanState === 'found' && scanResult?.product && (
+                <div className="absolute inset-x-0 bottom-0 z-20 bg-background-light dark:bg-zinc-900 rounded-t-3xl p-6 shadow-2xl animate-slide-up">
+                    <div className="w-12 h-1.5 bg-gray-300 dark:bg-zinc-700 rounded-full mx-auto mb-6" />
 
-                        <div className="flex items-start gap-4 mb-6">
-                            {scanResult.product.imageUrl ? (
-                                <img src={scanResult.product.imageUrl} alt={scanResult.product.name} className="w-20 h-20 rounded-2xl object-cover bg-white shadow-sm" />
-                            ) : (
-                                <div className="w-20 h-20 rounded-2xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-gray-400">
-                                    <Package size={32} />
-                                </div>
-                            )}
-                            <div className="flex-1">
-                                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight mb-1">{scanResult.product.name}</h2>
-                                <p className="text-sm text-gray-500">
-                                    Stock: {scanResult.product.currentStock?.quantity ?? 0} {scanResult.product.stockUnit.abbreviation}
-                                </p>
+                    <div className="flex items-start gap-4 mb-6">
+                        {scanResult.product.imageUrl ? (
+                            <img src={scanResult.product.imageUrl} alt={scanResult.product.name} className="w-20 h-20 rounded-2xl object-cover bg-white shadow-sm" />
+                        ) : (
+                            <div className="w-20 h-20 rounded-2xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-gray-400">
+                                <Package size={32} />
                             </div>
-                            <button onClick={resetScanner} className="p-2 -mr-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                                <X size={24} />
-                            </button>
+                        )}
+                        <div className="flex-1">
+                            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight mb-1">{scanResult.product.name}</h2>
+                            <p className="text-sm text-gray-500">
+                                Stock: {scanResult.product.currentStock?.quantity ?? 0} {scanResult.product.stockUnit.abbreviation}
+                            </p>
                         </div>
+                        <button onClick={resetScanner} className="p-2 -mr-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                            <X size={24} />
+                        </button>
+                    </div>
 
-                        {/* Quantity Stepper */}
-                        <div className="mb-6">
-                            <QuantityStepper
-                                value={purchaseData.quantity}
-                                onChange={(val) => setPurchaseData(p => ({ ...p, quantity: val }))}
-                                unitLabel={scanResult.product.purchaseUnit.abbreviation}
-                                className="w-full"
+                    <div className="mb-6">
+                        <QuantityStepper
+                            value={purchaseData.quantity}
+                            onChange={(val) => setPurchaseData(p => ({ ...p, quantity: val }))}
+                            unitLabel={scanResult.product.purchaseUnit.abbreviation}
+                            className="w-full"
+                        />
+                    </div>
+
+                    <div className="mb-6">
+                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 block">Scadenza (Opzionale)</label>
+                        <div className="space-y-3">
+                            <QuickDateChips
+                                onDateSelect={(date) => setPurchaseData(p => ({ ...p, bestBeforeDate: date }))}
+                            />
+                            <input
+                                type="date"
+                                className="w-full bg-gray-50 dark:bg-zinc-800/50 border border-transparent focus:border-primary focus:ring-0 rounded-xl px-4 py-3 text-gray-900 dark:text-white transition-all font-display"
+                                value={purchaseData.bestBeforeDate}
+                                onChange={(e) => setPurchaseData(p => ({ ...p, bestBeforeDate: e.target.value }))}
                             />
                         </div>
-
-                        {/* Best Before */}
-                        <div className="mb-6">
-                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 block">Scadenza (Opzionale)</label>
-
-                            <div className="space-y-3">
-                                <QuickDateChips
-                                    onDateSelect={(date) => setPurchaseData(p => ({ ...p, bestBeforeDate: date }))}
-                                />
-                                <input
-                                    type="date"
-                                    className="w-full bg-gray-50 dark:bg-zinc-800/50 border border-transparent focus:border-primary focus:ring-0 rounded-xl px-4 py-3 text-gray-900 dark:text-white transition-all font-display"
-                                    value={purchaseData.bestBeforeDate}
-                                    onChange={(e) => setPurchaseData(p => ({ ...p, bestBeforeDate: e.target.value }))}
-                                />
-                            </div>
-                        </div>
-
-                        {/* Location Selector */}
-                        <div className="mb-6">
-                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 block">Posizione</label>
-                            {locationsData && (
-                                <StorageSelector
-                                    locations={locationsData.locations}
-                                    selectedLocationId={purchaseData.locationId}
-                                    onSelect={(id) => setPurchaseData(p => ({ ...p, locationId: id }))}
-                                />
-                            )}
-                        </div>
-
-                        <button
-                            onClick={handlePurchase}
-                            disabled={purchaseMutation.isPending}
-                            className="w-full bg-primary text-white font-bold py-4 rounded-xl shadow-lg shadow-primary/30 active:scale-95 transition-all flex items-center justify-center gap-2"
-                        >
-                            {purchaseMutation.isPending ? (
-                                <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            ) : (
-                                <>
-                                    <Plus size={24} />
-                                    <span>Aggiungi al carico</span>
-                                </>
-                            )}
-                        </button>
-                        <div className="h-6" />
                     </div>
-                )}
+
+                    <div className="mb-6">
+                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 block">Posizione</label>
+                        {locationsData && (
+                            <StorageSelector
+                                locations={locationsData.locations}
+                                selectedLocationId={purchaseData.locationId}
+                                onSelect={(id) => setPurchaseData(p => ({ ...p, locationId: id }))}
+                            />
+                        )}
+                    </div>
+
+                    <button
+                        onClick={handlePurchase}
+                        disabled={purchaseMutation.isPending}
+                        className="w-full bg-primary text-white font-bold py-4 rounded-xl shadow-lg shadow-primary/30 active:scale-95 transition-all flex items-center justify-center gap-2"
+                    >
+                        {purchaseMutation.isPending ? (
+                            <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                            <>
+                                <Plus size={24} />
+                                <span>Aggiungi al carico</span>
+                            </>
+                        )}
+                    </button>
+                    <div className="h-6" />
+                </div>
+            )}
 
             {/* 4. New Product Modal */}
             {scanState === 'new' && (

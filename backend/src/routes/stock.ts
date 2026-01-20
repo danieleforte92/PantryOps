@@ -97,7 +97,6 @@ export async function stockRoutes(app: FastifyInstance) {
         let remaining = quantity;
 
         // Find lots with remaining stock, ordered by FEFO
-        // (First Expired First Out - prioritize items expiring sooner)
         const lotsWithBalance = await prisma.stockLotBalance.findMany({
             where: {
                 householdId,
@@ -105,8 +104,8 @@ export async function stockRoutes(app: FastifyInstance) {
                 remainingQuantity: { gt: 0 },
             },
             orderBy: [
-                { bestBeforeDate: 'asc' },  // Expiring first
-                { purchasedAt: 'asc' },      // Then oldest
+                { bestBeforeDate: 'asc' },
+                { purchasedAt: 'asc' },
             ],
         });
 
@@ -138,7 +137,7 @@ export async function stockRoutes(app: FastifyInstance) {
                     productId,
                     stockLotId: lot.stockLotId,
                     type: 'CONSUME',
-                    amount: -consumeAmount, // Negative for consumption
+                    amount: -consumeAmount,
                     userId,
                 },
             });
@@ -173,7 +172,6 @@ export async function stockRoutes(app: FastifyInstance) {
             where: { id: stockLotId },
         });
 
-        // Check if already opened
         const balance = await prisma.stockLotBalance.findUnique({
             where: { stockLotId },
         });
@@ -182,7 +180,6 @@ export async function stockRoutes(app: FastifyInstance) {
             return { success: true, message: 'Already opened', openedAt: balance.openedAt };
         }
 
-        // Create OPEN transaction (amount = 0, it's just an event)
         await prisma.stockTransaction.create({
             data: {
                 householdId,
@@ -194,7 +191,6 @@ export async function stockRoutes(app: FastifyInstance) {
             },
         });
 
-        // Update projection
         await updateProjections(householdId, lot.productId, stockLotId, 0, 'OPEN');
 
         return {
@@ -202,5 +198,102 @@ export async function stockRoutes(app: FastifyInstance) {
             message: 'Lot marked as opened',
             openedAt: new Date(),
         };
+    });
+
+    // COMMAND: Recipe Cook (Batch consumption)
+    fastify.post('/recipe-cook/:id', {
+        schema: {
+            params: z.object({ id: z.string().uuid() }),
+            body: z.object({
+                userId: z.string().uuid(),
+                servings: z.number().int().positive().optional()
+            })
+        }
+    }, async (request, reply) => {
+        const { id } = request.params;
+        const { userId, servings } = request.body;
+
+        const recipe = await prisma.recipe.findUnique({
+            where: { id },
+            include: {
+                ingredients: {
+                    include: {
+                        product: {
+                            include: { currentStock: true }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!recipe) return reply.status(404).send({ error: 'Recipe not found' });
+
+        const householdId = (await prisma.household.findFirst())?.id; // Mock auth
+        if (!householdId) return reply.status(400).send({ error: 'No household found' });
+
+        const actualServings = (recipe as any).servings || 1;
+        const factor = servings ? (servings / actualServings) : 1;
+
+        for (const ing of recipe.ingredients) {
+            const required = ing.quantity * factor;
+            const available = ing.product.currentStock?.quantity || 0;
+            if (available < required) {
+                return reply.status(400).send({
+                    error: 'STOCK_INSUFFICIENT',
+                    product: ing.product.name,
+                    required,
+                    available
+                });
+            }
+        }
+
+        await prisma.$transaction(async (tx) => {
+            for (const ing of recipe.ingredients) {
+                const required = ing.quantity * factor;
+                let remaining = required;
+
+                const lots = await tx.stockLotBalance.findMany({
+                    where: {
+                        householdId,
+                        productId: ing.productId,
+                        remainingQuantity: { gt: 0 }
+                    },
+                    orderBy: [
+                        { bestBeforeDate: 'asc' },
+                        { purchasedAt: 'asc' }
+                    ]
+                });
+
+                for (const lot of lots) {
+                    if (remaining <= 0) break;
+                    const consumeAmount = Math.min(lot.remainingQuantity, remaining);
+
+                    await tx.stockTransaction.create({
+                        data: {
+                            householdId,
+                            productId: ing.productId,
+                            stockLotId: lot.stockLotId,
+                            type: 'CONSUME',
+                            amount: -consumeAmount,
+                            userId
+                        }
+                    });
+
+                    await tx.currentStock.update({
+                        where: { householdId_productId: { householdId, productId: ing.productId } },
+                        data: { quantity: { decrement: consumeAmount } }
+                    });
+
+                    await tx.stockLotBalance.update({
+                        where: { stockLotId: lot.stockLotId },
+                        data: { remainingQuantity: { decrement: consumeAmount } }
+                    });
+
+                    remaining -= consumeAmount;
+                }
+            }
+        });
+
+        return { success: true };
     });
 }

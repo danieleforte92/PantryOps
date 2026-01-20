@@ -78,7 +78,9 @@ export default function RecipeDetailModal({ recipe, onClose }: RecipeDetailModal
                                 <Badge variant="warning" className="shadow-lg backdrop-blur-md border-none">Mancano ingredienti</Badge>
                             )}
                         </div>
-                        <h2 className="text-3xl font-bold text-white leading-tight shadow-black drop-shadow-md">{recipe.title}</h2>
+                        <h2 className="text-3xl font-bold text-white leading-tight shadow-black drop-shadow-md">
+                            {recipe.title || (recipe as any).name}
+                        </h2>
                     </div>
                 </div>
 

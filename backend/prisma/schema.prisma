@@ -256,25 +256,16 @@ model ShoppingListItem {
 // ============================================
 
 model Recipe {
-  id          String @id @default(uuid())
-  householdId String
+  id          String  @id @default(uuid())
   name        String
-  servings    Int    @default(1)
+  description String?
 
-  // metadata
-  source    RecipeSource @default(MANUAL)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-
-  household   Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
   ingredients RecipeIngredient[]
 
-  @@unique([householdId, name])
-}
-
-enum RecipeSource {
-  MANUAL
-  GENERATED
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  household   Household? @relation(fields: [householdId], references: [id])
+  householdId String?
 }
 
 model RecipeIngredient {
@@ -290,6 +281,7 @@ model RecipeIngredient {
   unitId   String
   unit     Unit   @relation(fields: [unitId], references: [id])
 
-  @@index([recipeId])
-  @@index([productId])
+  createdAt DateTime @default(now())
+
+  @@unique([recipeId, productId])
 }

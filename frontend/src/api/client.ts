@@ -145,12 +145,12 @@ export const recipesApi = {
         }),
 
     preview: (id: string, servings?: number) =>
-        fetchApi<RecipePreview>(`/recipes/${id}/preview${servings ? `?servings=${servings}` : ''}`),
+        fetchApi<RecipePreview>(`/suggestions/recipes/${id}/preview${servings ? `?servings=${servings}` : ''}`),
 
-    cook: (id: string, servings?: number) =>
-        fetchApi<{ success: boolean }>(`/recipes/${id}/cook`, {
+    cook: (id: string, userId: string, servings?: number) =>
+        fetchApi<{ success: boolean }>(`/stock/recipe-cook/${id}`, {
             method: 'POST',
-            body: JSON.stringify({ servings }),
+            body: JSON.stringify({ userId, servings }),
         }),
 };
 

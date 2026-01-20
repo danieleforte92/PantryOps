@@ -271,10 +271,11 @@ export function useRecipePreview(recipeId: string, servings?: number) {
 // Cook Recipe Mutation
 export function useCookRecipe() {
     const queryClient = useQueryClient();
+    const { user } = useAuth();
 
     return useMutation({
         mutationFn: ({ recipeId, servings }: { recipeId: string; servings?: number }) =>
-            recipesApi.cook(recipeId, servings),
+            recipesApi.cook(recipeId, user.id, servings),
         onSuccess: () => {
             // Invalidate everything stock related
             queryClient.invalidateQueries({ queryKey: ['current-stock'] });

@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
+import z from 'zod';
 import prisma from '../lib/prisma';
-import { RecipeService } from '../services/recipeService';
 
 export async function suggestionRoutes(app: FastifyInstance) {
     app.get('/today', async (request, reply) => {
@@ -70,5 +70,53 @@ export async function suggestionRoutes(app: FastifyInstance) {
             .sort((a, b) => b.score - a.score)
             .slice(0, 5) // Limit to 5 for "Oggi" UX
             .map(({ score, ...rest }) => rest);
+    });
+
+    // RECIPE PREVIEW (Decision Support)
+    app.get('/recipes/:id/preview', {
+        schema: {
+            params: z.object({ id: z.string().uuid() })
+        }
+    }, async (request, reply) => {
+        const { id } = (request.params as any).id; // Fix access if needed or use type provider
+
+        const recipe = await prisma.recipe.findUnique({
+            where: { id: (request.params as any).id },
+            include: {
+                ingredients: {
+                    include: {
+                        unit: true,
+                        product: {
+                            include: {
+                                stockUnit: true,
+                                currentStock: true
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!recipe) return reply.status(404).send({ error: 'Recipe not found' });
+
+        const ingredients = recipe.ingredients.map((ing: any) => {
+            const required = ing.quantity;
+            const available = ing.product.currentStock?.quantity || 0;
+            const missing = Math.max(0, required - available);
+
+            return {
+                productId: ing.productId,
+                productName: ing.product.name,
+                required,
+                available,
+                missing,
+                unit: ing.unit.abbreviation
+            };
+        });
+
+        return {
+            ingredients,
+            canCook: ingredients.every((i: any) => i.missing === 0)
+        };
     });
 }

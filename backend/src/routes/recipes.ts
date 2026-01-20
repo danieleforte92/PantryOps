@@ -3,7 +3,8 @@ import z from 'zod';
 import {
     createRecipe,
     addIngredientToRecipe,
-    getRecipeById
+    getRecipeById,
+    getRecipes
 } from '../services/recipeService';
 
 export async function recipeRoutes(app: FastifyInstance) {
@@ -13,12 +14,25 @@ export async function recipeRoutes(app: FastifyInstance) {
         schema: {
             body: z.object({
                 name: z.string().min(2),
-                servings: z.number().int().positive().optional()
+                servings: z.number().int().positive().optional(),
+                householdId: z.string().uuid().optional()
             })
         }
     }, async (req) => {
-        const { name } = req.body as { name: string };
-        return createRecipe(name);
+        const { name, householdId } = req.body as { name: string, householdId?: string };
+        return createRecipe(name, householdId);
+    });
+
+    // LIST RECIPES
+    app.get('/', {
+        schema: {
+            querystring: z.object({
+                householdId: z.string().uuid().optional()
+            })
+        }
+    }, async (req) => {
+        const { householdId } = req.query as { householdId?: string };
+        return getRecipes(householdId);
     });
 
     // ADD INGREDIENT
@@ -32,14 +46,30 @@ export async function recipeRoutes(app: FastifyInstance) {
                 quantity: z.number().positive()
             })
         }
-    }, async (req) => {
+    }, async (req, reply) => {
         const { id } = req.params as { id: string };
         const { productId, quantity } = req.body as {
             productId: string;
             quantity: number;
         };
 
-        return addIngredientToRecipe(id, productId, quantity);
+        try {
+            const result = await addIngredientToRecipe(id, productId, quantity);
+            return result;
+        } catch (error: any) {
+            // Gestione errori strutturati dal service
+            if (error.code === 'RECIPE_NOT_FOUND') {
+                return reply.status(404).send({ error: error.code, message: error.message });
+            }
+            if (error.code === 'PRODUCT_NOT_FOUND') {
+                return reply.status(404).send({ error: error.code, message: error.message });
+            }
+            if (error.code === 'INVALID_QUANTITY') {
+                return reply.status(400).send({ error: error.code, message: error.message });
+            }
+            // Errore generico
+            return reply.status(500).send({ error: 'INTERNAL_ERROR', message: 'Errore interno del server' });
+        }
     });
 
     // GET RECIPE

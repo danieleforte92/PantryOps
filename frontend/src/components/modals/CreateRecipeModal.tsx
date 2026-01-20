@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Plus, Search, Package, Trash2 } from 'lucide-react';
+import { X, Plus, Search, Package, Trash2, AlertCircle, CheckCircle } from 'lucide-react';
 import { useProducts, useCreateRecipe, useRecipes } from '../../hooks/useApi';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -22,6 +22,8 @@ export default function CreateRecipeModal({ onClose, onSuccess }: CreateRecipeMo
     const [search, setSearch] = useState('');
     const [selectedProductId, setSelectedProductId] = useState('');
     const [quantity, setQuantity] = useState(100);
+    const [error, setError] = useState<string | null>(null);
+    const [showSuccess, setShowSuccess] = useState(false);
 
     const { data: productsData } = useProducts();
     const createRecipeMutation = useCreateRecipe();
@@ -54,7 +56,17 @@ export default function CreateRecipeModal({ onClose, onSuccess }: CreateRecipeMo
     };
 
     const handleSubmit = async () => {
-        if (!name || ingredients.length === 0) return;
+        setError(null);
+
+        // Validazione
+        if (!name.trim()) {
+            setError('Inserisci un nome per la ricetta');
+            return;
+        }
+        if (ingredients.length === 0) {
+            setError('Aggiungi almeno un ingrediente');
+            return;
+        }
 
         try {
             await createRecipeMutation.mutateAsync({
@@ -62,11 +74,17 @@ export default function CreateRecipeModal({ onClose, onSuccess }: CreateRecipeMo
                 servings,
                 ingredients
             });
+            setShowSuccess(true);
             refetchRecipes.refetch();
-            onSuccess?.();
-            onClose();
-        } catch (error) {
-            console.error('Failed to create recipe:', error);
+            setTimeout(() => {
+                onSuccess?.();
+                onClose();
+            }, 800);
+        } catch (err: any) {
+            console.error('Failed to create recipe:', err);
+            // Gestione errori API
+            const message = err?.message || err?.error || 'Errore durante il salvataggio';
+            setError(message);
         }
     };
 
@@ -84,6 +102,22 @@ export default function CreateRecipeModal({ onClose, onSuccess }: CreateRecipeMo
                 </CardHeader>
 
                 <CardContent className="flex-1 overflow-auto p-4 space-y-6">
+                    {/* Success Message */}
+                    {showSuccess && (
+                        <div className="flex items-center gap-3 p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 animate-in fade-in slide-in-from-top-2">
+                            <CheckCircle size={20} className="text-green-600 dark:text-green-400" />
+                            <span className="font-bold text-green-800 dark:text-green-300">Ricetta salvata con successo!</span>
+                        </div>
+                    )}
+
+                    {/* Error Message */}
+                    {error && !showSuccess && (
+                        <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 animate-in fade-in slide-in-from-top-2">
+                            <AlertCircle size={20} className="text-red-600 dark:text-red-400" />
+                            <span className="font-medium text-red-800 dark:text-red-300">{error}</span>
+                        </div>
+                    )}
+
                     {/* Recipe Name */}
                     <div className="space-y-2">
                         <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Nome ricetta</label>
@@ -229,9 +263,9 @@ export default function CreateRecipeModal({ onClose, onSuccess }: CreateRecipeMo
 
                 <div className="p-4 border-t border-gray-100 dark:border-white/5 flex gap-3">
                     <Button variant="secondary" className="flex-1" onClick={onClose}>Annulla</Button>
-                    <Button 
-                        className="flex-1" 
-                        onClick={handleSubmit} 
+                    <Button
+                        className="flex-1"
+                        onClick={handleSubmit}
                         disabled={!name || ingredients.length === 0 || createRecipeMutation.isPending}
                         isLoading={createRecipeMutation.isPending}
                     >

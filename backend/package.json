@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "bun run --watch src/server.ts",
-    "build": "bun build src/server.ts --outdir dist",
+    "build": "bun build src/server.ts --outdir dist --target bun",
+
     "start": "bun run dist/server.js",
     "db:generate": "bunx prisma generate",
     "db:push": "bunx prisma db push",

@@ -6,4 +6,9 @@ backend/node_modules
 frontend/.bun
 backend/.bun
 
+# env files
+.env
+.env.local
+
+
 .opencode

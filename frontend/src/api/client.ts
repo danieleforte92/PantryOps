@@ -1,6 +1,9 @@
 // API client for backend communication
 
-const API_BASE = '/api';
+// API client for backend communication
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
+
 
 async function fetchApi<T>(
     endpoint: string,

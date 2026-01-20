@@ -18,11 +18,17 @@ const app = Fastify({
 app.setValidatorCompiler(validatorCompiler);
 app.setSerializerCompiler(serializerCompiler);
 
+
 // CORS for frontend
+const corsOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
+    : ['http://localhost:5173', 'http://localhost:3000'];
+
 await app.register(cors, {
-    origin: ['http://localhost:5173', 'http://localhost:3000'],
+    origin: corsOrigins,
     credentials: true,
 });
+
 
 // Health check
 app.get('/health', async () => {

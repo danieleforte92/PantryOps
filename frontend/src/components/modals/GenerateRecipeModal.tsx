@@ -3,7 +3,6 @@ import { X, Sparkles, Check, Search, ChefHat } from 'lucide-react';
 import { useCurrentStock } from '../../hooks/useApi';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
-import { Badge } from '../ui/Badge';
 
 interface GenerateRecipeModalProps {
     onClose: () => void;

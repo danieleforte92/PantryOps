@@ -197,6 +197,8 @@ export interface Product {
     nutriscore?: string;
     novaGroup?: number;
     ecoScore?: string;
+    minStockAmount?: number;
+    shelfLifeDays?: number;
     categories?: string[];
 }
 

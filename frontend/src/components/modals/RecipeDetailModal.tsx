@@ -26,7 +26,7 @@ interface RecipeDetailModalProps {
 // MOCK_INGREDIENTS removed as they are now handled by the backend preview endpoint.
 
 export default function RecipeDetailModal({ recipe, onClose }: RecipeDetailModalProps) {
-    const [servings, setServings] = useState(recipe.servings || 1);
+    const [servings] = useState(recipe.servings || 1);
     const { data: preview, isLoading } = useRecipePreview(recipe.id, servings);
     const { mutateAsync: cookRecipe } = useCookRecipe();
     const [cooking, setCooking] = useState(false);

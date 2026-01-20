@@ -1,4 +1,4 @@
-import { useCurrentStock, useConsume, usePurchase } from '../hooks/useApi';
+import { useCurrentStock, usePurchase } from '../hooks/useApi';
 import { StockItem } from '../api/client';
 import { Package, Minus, Plus, Search } from 'lucide-react';
 import { useState, useMemo } from 'react';
@@ -10,7 +10,6 @@ import CookConfirmationModal, { CookItem } from '../components/modals/CookConfir
 
 export default function StockPage() {
     const { data, isLoading } = useCurrentStock();
-    const consumeMutation = useConsume();
     const purchaseMutation = usePurchase();
 
     // Track loading states locally to avoid UI jitter using mutation.isPending which is global

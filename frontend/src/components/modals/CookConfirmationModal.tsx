@@ -19,7 +19,7 @@ interface CookConfirmationModalProps {
     title?: string;
 }
 
-export default function CookConfirmationModal({ items, onClose, onSuccess, title = "Conferma Utilizzo" }: CookConfirmationModalProps) {
+export default function CookConfirmationModal({ items, onClose, onSuccess, title = "Conferma Consumo" }: CookConfirmationModalProps) {
     const consumeMutation = useConsume();
     const [isProcessing, setIsProcessing] = useState(false);
 
@@ -66,7 +66,17 @@ export default function CookConfirmationModal({ items, onClose, onSuccess, title
                 </CardHeader>
 
                 <CardContent className="p-6 space-y-6">
-                    <p className="text-gray-500 text-sm">Stai per usare questi ingredienti dalla tua dispensa:</p>
+                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3 rounded-lg flex items-start gap-3">
+                        <div className="p-1 bg-amber-100 dark:bg-amber-800 rounded-full shrink-0">
+                            <ChefHat size={14} className="text-amber-700 dark:text-amber-400" />
+                        </div>
+                        <div>
+                            <p className="font-bold text-sm text-amber-900 dark:text-amber-200">Il magazzino verrà aggiornato</p>
+                            <p className="text-xs text-amber-700 dark:text-amber-400">Le quantità verranno scaricate automaticamente.</p>
+                        </div>
+                    </div>
+
+                    <p className="text-gray-500 text-sm font-medium">Ingredienti da consumare:</p>
 
                     <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-1 hide-scroll">
                         {items.map((item, idx) => (

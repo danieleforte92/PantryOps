@@ -16,14 +16,15 @@ model Household {
   name      String
   createdAt DateTime @default(now())
 
-  users         HouseholdUser[]
-  products      Product[]
-  locations     Location[]
-  stockLots     StockLot[]
-  transactions  StockTransaction[]
-  currentStock  CurrentStock[]
-  shoppingItems ShoppingListItem[]
-  recipes       Recipe[]
+  users                HouseholdUser[]
+  products             Product[]
+  locations            Location[]
+  stockLots            StockLot[]
+  transactions         StockTransaction[]
+  currentStock         CurrentStock[]
+  shoppingItems        ShoppingListItem[]
+  recipes              Recipe[]
+  ingredientCategories IngredientCategory[]
 }
 
 model User {
@@ -62,9 +63,10 @@ model Unit {
   name         String @unique
   abbreviation String
 
-  productsStock     Product[]          @relation("StockUnit")
-  productsPurchase  Product[]          @relation("PurchaseUnit")
-  recipeIngredients RecipeIngredient[]
+  productsStock        Product[]            @relation("StockUnit")
+  productsPurchase     Product[]            @relation("PurchaseUnit")
+  recipeIngredients    RecipeIngredient[]
+  ingredientCategories IngredientCategory[]
 }
 
 model Location {
@@ -119,12 +121,13 @@ model Product {
   purchaseUnit    Unit      @relation("PurchaseUnit", fields: [purchaseUnitId], references: [id])
   defaultLocation Location? @relation(fields: [defaultLocationId], references: [id])
 
-  barcodes          Barcode[]
-  stockLots         StockLot[]
-  transactions      StockTransaction[]
-  currentStock      CurrentStock?
-  shoppingItems     ShoppingListItem[]
-  recipeIngredients RecipeIngredient[]
+  barcodes                    Barcode[]
+  stockLots                   StockLot[]
+  transactions                StockTransaction[]
+  currentStock                CurrentStock?
+  shoppingItems               ShoppingListItem[]
+  recipeIngredients           RecipeIngredient[]
+  productIngredientCategories ProductIngredientCategory[]
 
   @@unique([householdId, name])
 }
@@ -274,8 +277,13 @@ model RecipeIngredient {
   recipeId String
   recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
 
-  productId String
-  product   Product @relation(fields: [productId], references: [id])
+  // LEGACY: prodotto specifico (usato per ricette vecchie)
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id])
+
+  // NEW: categoria ingrediente (usato per ricette nuove)
+  ingredientCategoryId String?
+  ingredientCategory   IngredientCategory? @relation(fields: [ingredientCategoryId], references: [id])
 
   quantity Float
   unitId   String
@@ -283,5 +291,37 @@ model RecipeIngredient {
 
   createdAt DateTime @default(now())
 
+  // Almeno uno dei due deve essere presente (validato a livello applicativo)
+  // Unique compound: una ricetta non può avere duplicati per lo stesso product O category
   @@unique([recipeId, productId])
+  @@unique([recipeId, ingredientCategoryId])
+}
+
+model IngredientCategory {
+  id          String    @id @default(uuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id])
+
+  name       String
+  baseUnitId String
+  baseUnit   Unit   @relation(fields: [baseUnitId], references: [id])
+
+  products    ProductIngredientCategory[]
+  recipeItems RecipeIngredient[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([householdId, name])
+}
+
+model ProductIngredientCategory {
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  ingredientCategoryId String
+  ingredientCategory   IngredientCategory @relation(fields: [ingredientCategoryId], references: [id])
+
+  priority Int?
+
+  @@id([productId, ingredientCategoryId])
 }

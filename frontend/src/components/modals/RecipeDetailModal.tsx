@@ -142,6 +142,9 @@ export default function RecipeDetailModal({ recipe, onClose }: RecipeDetailModal
                     >
                         Cucina ora
                     </Button>
+                    <p className="text-xs text-center text-gray-400 mt-2">
+                        Attenzione: questa azione consumerà le scorte dal magazzino
+                    </p>
                 </div>
 
                 {/* Cook Confirmation Modal Integration */}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { X, Plus, Search, Package, Trash2, AlertCircle, CheckCircle } from 'lucide-react';
-import { useProducts, useCreateRecipe, useRecipes } from '../../hooks/useApi';
+import { X, Plus, Trash2, AlertCircle, CheckCircle, ChevronDown } from 'lucide-react';
+import { useCreateRecipe, useRecipes, useIngredientCategories } from '../../hooks/useApi';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
 
@@ -10,45 +10,57 @@ interface CreateRecipeModalProps {
 }
 
 interface RecipeIngredientInput {
-    productId: string;
+    ingredientCategoryId: string;
     quantity: number;
     unitId: string;
+    // UI helper only
+    categoryName: string;
+    unitAbbreviation: string;
 }
 
 export default function CreateRecipeModal({ onClose, onSuccess }: CreateRecipeModalProps) {
     const [name, setName] = useState('');
     const [servings, setServings] = useState(4);
     const [ingredients, setIngredients] = useState<RecipeIngredientInput[]>([]);
-    const [search, setSearch] = useState('');
-    const [selectedProductId, setSelectedProductId] = useState('');
+
+    // Form state per nuovo ingrediente
+    const [selectedCategoryId, setSelectedCategoryId] = useState('');
     const [quantity, setQuantity] = useState(100);
+
     const [error, setError] = useState<string | null>(null);
     const [showSuccess, setShowSuccess] = useState(false);
 
-    const { data: productsData } = useProducts();
+    // Hooks
+    const { data: categoriesData } = useIngredientCategories();
     const createRecipeMutation = useCreateRecipe();
     const refetchRecipes = useRecipes();
 
-    const products = productsData?.products ?? [];
-    const filteredProducts = products.filter(p =>
-        p.name.toLowerCase().includes(search.toLowerCase())
-    );
-
-    const selectedProduct = products.find(p => p.id === selectedProductId);
+    const categories = categoriesData?.categories ?? [];
+    const selectedCategory = categories.find(c => c.id === selectedCategoryId);
 
     const addIngredient = () => {
-        if (!selectedProduct) return;
+        if (!selectedCategory) return;
+
+        // Check duplicati
+        if (ingredients.some(i => i.ingredientCategoryId === selectedCategory.id)) {
+            setError('Questa categoria è già stata aggiunta. Modifica la quantità esistente.');
+            setTimeout(() => setError(null), 3000);
+            return;
+        }
 
         const newIngredient: RecipeIngredientInput = {
-            productId: selectedProduct.id,
+            ingredientCategoryId: selectedCategory.id,
             quantity,
-            unitId: selectedProduct.stockUnit.id
+            unitId: selectedCategory.baseUnit.id,
+            categoryName: selectedCategory.name,
+            unitAbbreviation: selectedCategory.baseUnit.abbreviation
         };
 
         setIngredients(prev => [...prev, newIngredient]);
-        setSelectedProductId('');
+
+        // Reset form
+        setSelectedCategoryId('');
         setQuantity(100);
-        setSearch('');
     };
 
     const removeIngredient = (index: number) => {
@@ -72,17 +84,23 @@ export default function CreateRecipeModal({ onClose, onSuccess }: CreateRecipeMo
             await createRecipeMutation.mutateAsync({
                 name,
                 servings,
-                ingredients
+                ingredients: ingredients.map(i => ({
+                    ingredientCategoryId: i.ingredientCategoryId,
+                    quantity: i.quantity,
+                    unitId: i.unitId
+                }))
+                // Nota: productId è undefined, userà la logica category-based
             });
+
             setShowSuccess(true);
             refetchRecipes.refetch();
+
             setTimeout(() => {
                 onSuccess?.();
                 onClose();
             }, 800);
         } catch (err: any) {
             console.error('Failed to create recipe:', err);
-            // Gestione errori API
             const message = err?.message || err?.error || 'Errore durante il salvataggio';
             setError(message);
         }
@@ -91,180 +109,166 @@ export default function CreateRecipeModal({ onClose, onSuccess }: CreateRecipeMo
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
             <Card
-                className="w-full max-w-2xl max-h-[90vh] flex flex-col bg-white dark:bg-zinc-900 border-gray-200 dark:border-white/10 shadow-xl"
+                className="w-full max-w-2xl max-h-[90vh] flex flex-col bg-zinc-900 border-white/10 shadow-xl text-white"
                 onClick={(e) => e.stopPropagation()}
             >
-                <CardHeader className="flex flex-row items-center justify-between pb-4 border-b border-gray-100 dark:border-white/5">
-                    <CardTitle className="text-xl">Nuova Ricetta</CardTitle>
-                    <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full">
+                <CardHeader className="flex flex-row items-center justify-between pb-4 border-b border-white/5">
+                    <CardTitle className="text-xl font-bold">Nuova Ricetta</CardTitle>
+                    <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full hover:bg-white/10">
                         <X size={20} />
                     </Button>
                 </CardHeader>
 
-                <CardContent className="flex-1 overflow-auto p-4 space-y-6">
+                <CardContent className="flex-1 overflow-auto p-6 space-y-8">
                     {/* Success Message */}
                     {showSuccess && (
-                        <div className="flex items-center gap-3 p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 animate-in fade-in slide-in-from-top-2">
-                            <CheckCircle size={20} className="text-green-600 dark:text-green-400" />
-                            <span className="font-bold text-green-800 dark:text-green-300">Ricetta salvata con successo!</span>
+                        <div className="flex items-center gap-3 p-4 rounded-xl bg-green-900/20 border border-green-800 animate-in fade-in slide-in-from-top-2">
+                            <CheckCircle size={20} className="text-green-400" />
+                            <span className="font-bold text-green-300">Ricetta salvata con successo!</span>
                         </div>
                     )}
 
                     {/* Error Message */}
                     {error && !showSuccess && (
-                        <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 animate-in fade-in slide-in-from-top-2">
-                            <AlertCircle size={20} className="text-red-600 dark:text-red-400" />
-                            <span className="font-medium text-red-800 dark:text-red-300">{error}</span>
+                        <div className="flex items-center gap-3 p-4 rounded-xl bg-red-900/20 border border-red-800 animate-in fade-in slide-in-from-top-2">
+                            <AlertCircle size={20} className="text-red-400" />
+                            <span className="font-medium text-red-300">{error}</span>
                         </div>
                     )}
 
-                    {/* Recipe Name */}
-                    <div className="space-y-2">
-                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Nome ricetta</label>
-                        <input
-                            type="text"
-                            className="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-primary/50 font-bold text-lg"
-                            placeholder="es. Pasta al pomodoro"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            autoFocus
-                        />
-                    </div>
-
-                    {/* Servings */}
-                    <div className="space-y-2">
-                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Porzioni</label>
-                        <div className="flex items-center gap-3">
-                            <Button variant="secondary" onClick={() => setServings(Math.max(1, servings - 1))} className="h-10 w-10 p-0 rounded-xl">
-                                -
-                            </Button>
+                    {/* Recipe Name & Servings */}
+                    <div className="space-y-6">
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Nome del piatto</label>
                             <input
-                                type="number"
-                                className="flex-1 h-10 text-center rounded-xl bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-white/10 font-bold"
-                                value={servings}
-                                onChange={(e) => setServings(Math.max(1, parseInt(e.target.value) || 1))}
-                                min={1}
+                                type="text"
+                                className="w-full px-0 py-2 border-b-2 border-white/10 bg-transparent focus:border-primary focus:outline-none text-3xl font-bold placeholder:text-zinc-700 transition-colors"
+                                placeholder="es. Pasta al pomodoro"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                autoFocus
                             />
-                            <Button variant="secondary" onClick={() => setServings(servings + 1)} className="h-10 w-10 p-0 rounded-xl">
-                                +
-                            </Button>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                            <label className="text-sm font-medium text-gray-400">Porzioni:</label>
+                            <div className="flex items-center gap-3 bg-zinc-800 rounded-full p-1 pl-2 pr-2 border border-white/5">
+                                <Button variant="ghost" size="icon" onClick={() => setServings(Math.max(1, servings - 1))} className="h-8 w-8 rounded-full hover:bg-zinc-700">
+                                    -
+                                </Button>
+                                <span className="min-w-[3ch] text-center font-bold text-lg">{servings}</span>
+                                <Button variant="ghost" size="icon" onClick={() => setServings(servings + 1)} className="h-8 w-8 rounded-full hover:bg-zinc-700">
+                                    +
+                                </Button>
+                            </div>
                         </div>
                     </div>
 
                     {/* Add Ingredients Section */}
-                    <div className="space-y-4 p-4 bg-gray-50 dark:bg-zinc-800/50 rounded-xl border border-gray-100 dark:border-white/5">
-                        <div className="flex items-center justify-between">
-                            <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Aggiungi ingredienti</label>
-                            <span className="text-xs text-gray-500">{ingredients.length} ingredienti</span>
+                    <div className="space-y-4 p-5 bg-zinc-800/30 rounded-2xl border border-white/5">
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="text-sm font-bold text-primary">Aggiungi ingredienti</label>
+                            <span className="text-xs text-gray-500">{ingredients.length} aggiunti</span>
                         </div>
 
-                        {/* Search Products */}
-                        <div className="relative">
-                            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                            <input
-                                type="text"
-                                className="w-full pl-10 pr-4 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-gray-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                placeholder="Cerca prodotto..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                            />
-                        </div>
-
-                        {/* Product List */}
-                        {search && (
-                            <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto">
-                                {filteredProducts.map((product) => (
-                                    <div
-                                        key={product.id}
-                                        className={`flex items-center gap-3 p-2 rounded-xl border transition-all cursor-pointer ${selectedProductId === product.id
-                                            ? 'bg-primary/5 border-primary/30'
-                                            : 'bg-white dark:bg-zinc-900 border-transparent hover:bg-gray-50 dark:hover:bg-zinc-800'
-                                            }`}
-                                        onClick={() => setSelectedProductId(product.id)}
-                                    >
-                                        {product.imageUrl ? (
-                                            <img src={product.imageUrl} alt={product.name} className="w-10 h-10 rounded-lg object-cover bg-gray-100" />
-                                        ) : (
-                                            <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-zinc-800 flex items-center justify-center">
-                                                <Package size={18} className="text-gray-400" />
-                                            </div>
-                                        )}
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-bold text-sm text-gray-900 dark:text-white">{product.name}</p>
-                                            <p className="text-xs text-gray-500">
-                                                {product.stockUnit.abbreviation}
-                                            </p>
-                                        </div>
-                                        {selectedProductId === product.id && (
-                                            <div className="w-4 h-4 rounded-full bg-primary flex items-center justify-center">
-                                                <div className="w-1.5 h-1.5 bg-white rounded-full" />
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            {/* Category Dropdown */}
+                            <div className="flex-1 relative">
+                                <select
+                                    className="w-full h-12 pl-4 pr-10 rounded-xl bg-zinc-800 border border-white/10 focus:border-primary focus:ring-1 focus:ring-primary appearance-none cursor-pointer font-medium"
+                                    value={selectedCategoryId}
+                                    onChange={(e) => setSelectedCategoryId(e.target.value)}
+                                >
+                                    <option value="" disabled>Seleziona categoria...</option>
+                                    {categories.map((cat) => (
+                                        <option key={cat.id} value={cat.id}>
+                                            {cat.name} ({cat.baseUnit.abbreviation})
+                                        </option>
+                                    ))}
+                                </select>
+                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
                             </div>
-                        )}
 
-                        {/* Quantity Input & Add Button */}
-                        {selectedProduct && (
-                            <div className="flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
-                                <div className="flex-1 flex items-center gap-2">
-                                    <Button variant="secondary" onClick={() => setQuantity(Math.max(1, quantity - 10))} className="h-9 w-9 p-0 rounded-lg">
+                            {/* Quantity & Add Button */}
+                            <div className="flex items-center gap-2">
+                                <div className="flex items-center bg-zinc-800 rounded-xl border border-white/10 h-12 px-1">
+                                    <Button variant="ghost" size="icon" onClick={() => setQuantity(Math.max(1, quantity - 10))} className="h-8 w-8 rounded-lg hover:bg-zinc-700">
                                         -
                                     </Button>
                                     <input
                                         type="number"
-                                        className="flex-1 h-9 text-center rounded-lg bg-white dark:bg-zinc-900 border border-gray-200 dark:border-white/10 font-bold"
+                                        className="w-16 text-center bg-transparent border-none focus:ring-0 font-bold"
                                         value={quantity}
                                         onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                                        min={1}
                                     />
-                                    <Button variant="secondary" onClick={() => setQuantity(quantity + 10)} className="h-9 w-9 p-0 rounded-lg">
+                                    <Button variant="ghost" size="icon" onClick={() => setQuantity(quantity + 10)} className="h-8 w-8 rounded-lg hover:bg-zinc-700">
                                         +
                                     </Button>
-                                    <span className="text-sm font-bold text-gray-500 w-12 text-center">
-                                        {selectedProduct.stockUnit.abbreviation}
-                                    </span>
                                 </div>
-                                <Button size="sm" onClick={addIngredient}>
-                                    <Plus size={16} className="mr-1" />
+
+                                <Button
+                                    className="h-12 px-6 bg-primary hover:bg-[#e67a30] text-black font-bold rounded-xl whitespace-nowrap"
+                                    onClick={addIngredient}
+                                    disabled={!selectedCategory}
+                                >
+                                    <Plus size={18} className="mr-1" />
                                     Aggiungi
                                 </Button>
                             </div>
+                        </div>
+
+                        {selectedCategory && (
+                            <p className="text-xs text-gray-500 ml-1">
+                                Unità: <span className="text-gray-300">{selectedCategory.baseUnit.name}</span>
+                            </p>
                         )}
                     </div>
 
                     {/* Ingredients List */}
-                    {ingredients.length > 0 && (
+                    {ingredients.length > 0 ? (
                         <div className="space-y-3">
-                            <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Ingredienti selezionati</label>
-                            <div className="space-y-2">
-                                {ingredients.map((ing, index) => {
-                                    const product = products.find(p => p.id === ing.productId);
-                                    const unit = products.find(p => p.id === ing.productId)?.stockUnit;
-                                    return (
-                                        <div key={index} className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-zinc-900 border border-gray-100 dark:border-white/5">
-                                            <div className="flex-1 min-w-0">
-                                                <p className="font-bold text-sm text-gray-900 dark:text-white">{product?.name}</p>
-                                                <p className="text-xs text-gray-500">
-                                                    {ing.quantity} {unit?.abbreviation}
-                                                </p>
-                                            </div>
-                                            <Button variant="ghost" size="icon" onClick={() => removeIngredient(index)} className="h-8 w-8 text-red-500 hover:text-red-600">
-                                                <Trash2 size={16} />
-                                            </Button>
+                            {ingredients.map((ing, index) => (
+                                <div key={index} className="flex items-center justify-between p-4 rounded-xl bg-zinc-800/50 border border-white/5 hover:border-white/10 transition-colors">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
+                                            {index + 1}
                                         </div>
-                                    );
-                                })}
-                            </div>
+                                        <div>
+                                            <p className="font-bold text-white">{ing.categoryName}</p>
+                                            <p className="text-sm text-gray-400 font-mono">
+                                                {ing.quantity} {ing.unitAbbreviation}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => removeIngredient(index)}
+                                        className="text-gray-500 hover:text-red-400 hover:bg-red-900/20"
+                                    >
+                                        <Trash2 size={18} />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-8 text-gray-500 border-2 border-dashed border-white/5 rounded-2xl">
+                            <p>Nessun ingrediente aggiunto</p>
+                            <p className="text-xs mt-1 text-gray-600">Seleziona una categoria sopra per iniziare</p>
                         </div>
                     )}
                 </CardContent>
 
-                <div className="p-4 border-t border-gray-100 dark:border-white/5 flex gap-3">
-                    <Button variant="secondary" className="flex-1" onClick={onClose}>Annulla</Button>
+                <div className="p-6 border-t border-white/5 flex gap-3 bg-zinc-900/95 backdrop-blur-sm">
                     <Button
-                        className="flex-1"
+                        variant="secondary"
+                        className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white border-none h-12 text-base font-medium rounded-xl"
+                        onClick={onClose}
+                    >
+                        Annulla
+                    </Button>
+                    <Button
+                        className="flex-1 bg-primary hover:bg-[#e67a30] text-black font-bold h-12 text-base rounded-xl"
                         onClick={handleSubmit}
                         disabled={!name || ingredients.length === 0 || createRecipeMutation.isPending}
                         isLoading={createRecipeMutation.isPending}

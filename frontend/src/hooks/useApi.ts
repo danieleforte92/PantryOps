@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { queriesApi, stockApi, productsApi, shoppingApi, recipesApi, suggestionsApi } from '../api/client';
+import { queriesApi, stockApi, productsApi, shoppingApi, recipesApi, suggestionsApi, ingredientCategoriesApi } from '../api/client';
 
 // Get current user context (for MVP, stored in localStorage)
 export function useAuth() {
@@ -292,10 +292,21 @@ export function useCreateRecipe() {
     const { household } = useAuth();
 
     return useMutation({
-        mutationFn: (data: { name: string; servings: number; ingredients: { productId: string; quantity: number; unitId: string }[] }) =>
+        mutationFn: (data: { name: string; servings: number; ingredients: { productId?: string; ingredientCategoryId?: string; quantity: number; unitId: string }[] }) =>
             recipesApi.create({ ...data, householdId: household.id }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['recipes'] });
         },
+    });
+}
+
+// Ingredient Categories Query
+export function useIngredientCategories() {
+    const { household } = useAuth();
+
+    return useQuery({
+        queryKey: ['ingredient-categories', household?.id],
+        queryFn: () => ingredientCategoriesApi.getAll(household.id),
+        enabled: !!household?.id,
     });
 }

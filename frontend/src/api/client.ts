@@ -163,6 +163,12 @@ export const suggestionsApi = {
         fetchApi<TodaySuggestion[]>(`/suggestions/today?householdId=${householdId}`),
 };
 
+// Ingredient Categories (NEW)
+export const ingredientCategoriesApi = {
+    getAll: (householdId: string) =>
+        fetchApi<{ categories: IngredientCategory[] }>(`/recipes/ingredient-categories?householdId=${householdId}`),
+};
+
 // Types
 export interface User {
     id: string;
@@ -324,10 +330,20 @@ export interface Recipe {
 
 export interface RecipeIngredient {
     id: string;
-    productId: string;
-    product: Product;
+    // LEGACY: product-based ingredient
+    productId?: string;
+    product?: Product;
+    // NEW: category-based ingredient
+    ingredientCategoryId?: string;
+    ingredientCategory?: IngredientCategory;
     quantity: number;
     unit: Unit;
+}
+
+export interface IngredientCategory {
+    id: string;
+    name: string;
+    baseUnit: Unit;
 }
 
 export interface RecipePreviewItem {

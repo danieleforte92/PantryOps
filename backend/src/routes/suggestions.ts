@@ -39,6 +39,11 @@ export async function suggestionRoutes(app: FastifyInstance) {
             let usesExpiringItems = false;
 
             recipe.ingredients.forEach(ing => {
+                // Se è category-based (no product), per ora consideriamo 0 disponibile
+                if (!ing.product) {
+                    return; // Counted as missing by default (total - available)
+                }
+
                 const available = ing.product.currentStock?.quantity || 0;
                 if (available >= ing.quantity) {
                     availableIngredients++;
@@ -91,7 +96,8 @@ export async function suggestionRoutes(app: FastifyInstance) {
                                 stockUnit: true,
                                 currentStock: true
                             }
-                        }
+                        },
+                        ingredientCategory: true
                     }
                 }
             }
@@ -101,12 +107,29 @@ export async function suggestionRoutes(app: FastifyInstance) {
 
         const ingredients = recipe.ingredients.map((ing: any) => {
             const required = ing.quantity;
-            const available = ing.product.currentStock?.quantity || 0;
+            let available = 0;
+            let name = 'Unknown Item';
+            let id = ing.id;
+
+            if (ing.product) {
+                // Legacy: Product based
+                available = ing.product.currentStock?.quantity || 0;
+                name = ing.product.name;
+                id = ing.productId;
+            } else if (ing.ingredientCategory) {
+                // New: Category based
+                // TODO: Implement Category Resolution Logic (Metadata Resolution)
+                // Per ora assumiamo 0 disponibilità finché non implementiamo il matching
+                available = 0;
+                name = ing.ingredientCategory.name;
+                id = ing.ingredientCategoryId;
+            }
+
             const missing = Math.max(0, required - available);
 
             return {
-                productId: ing.productId,
-                productName: ing.product.name,
+                productId: id, // Usiamo ID categoria o prodotto come identificatore
+                productName: name,
                 required,
                 available,
                 missing,

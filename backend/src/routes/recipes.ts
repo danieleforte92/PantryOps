@@ -16,12 +16,28 @@ export async function recipeRoutes(app: FastifyInstance) {
             body: z.object({
                 name: z.string().min(2),
                 servings: z.number().int().positive().optional(),
-                householdId: z.string().uuid().optional()
+                householdId: z.string().uuid().optional(),
+                ingredients: z.array(z.object({
+                    productId: z.string().uuid().optional(),
+                    ingredientCategoryId: z.string().uuid().optional(),
+                    quantity: z.number().positive(),
+                    unitId: z.string().uuid()
+                })).optional()
             })
         }
     }, async (req) => {
-        const { name, householdId } = req.body as { name: string, householdId?: string };
-        return createRecipe(name, householdId);
+        const { name, householdId, servings, ingredients } = req.body as {
+            name: string;
+            householdId?: string;
+            servings?: number;
+            ingredients?: {
+                productId?: string;
+                ingredientCategoryId?: string;
+                quantity: number;
+                unitId: string;
+            }[]
+        };
+        return createRecipe(name, householdId, servings, ingredients);
     });
 
     // LIST RECIPES

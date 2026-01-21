@@ -2,15 +2,85 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-export const createRecipe = async (name: string, householdId?: string) => {
-    return prisma.recipe.create({
-        data: {
-            name,
-            householdId
-        },
-        include: { ingredients: true }
+interface CreateRecipeIngredient {
+    productId?: string;
+    ingredientCategoryId?: string;
+    quantity: number;
+    unitId: string;
+}
+
+export const createRecipe = async (name: string, householdId?: string, servings: number = 4, ingredients: CreateRecipeIngredient[] = []) => {
+    return prisma.$transaction(async (tx) => {
+        // 1. Create Recipe
+        const recipe = await tx.recipe.create({
+            data: {
+                name,
+                householdId,
+                servings
+            }
+        });
+
+        // 2. Create Ingredients
+        if (ingredients && ingredients.length > 0) {
+            for (const ing of ingredients) {
+                // Determine unit (logic similar to addIngredientToRecipe but simplified for creation)
+                // Actually, the FE sends unitId but for categories we should use baseUnitId if possible or validate
+                // For simplicity, we trust the FE for unitId or verify it matches category base unit
+
+                // We need to fetch proper unit if not provided, but FE sends it currently.
+                // However, our dual-mode logic in addIngredientToRecipe handles unit automatic lookups.
+                // Let's reuse addIngredientToRecipe logic if possible, or replicate it carefully inside transaction.
+
+                // Replicating basic logic for transaction safety:
+                let unitId = ing.unitId;
+
+                if (ing.ingredientCategoryId) {
+                    const cat = await tx.ingredientCategory.findUnique({ where: { id: ing.ingredientCategoryId } });
+                    if (cat) unitId = cat.baseUnitId; // Enforce category base unit
+
+                    await tx.recipeIngredient.create({
+                        data: {
+                            recipeId: recipe.id,
+                            ingredientCategoryId: ing.ingredientCategoryId,
+                            quantity: ing.quantity,
+                            unitId
+                        }
+                    });
+                } else if (ing.productId) {
+                    const prod = await tx.product.findUnique({ where: { id: ing.productId } });
+                    if (prod) unitId = prod.stockUnitId; // Enforce product stock unit
+
+                    await tx.recipeIngredient.create({
+                        data: {
+                            recipeId: recipe.id,
+                            productId: ing.productId,
+                            quantity: ing.quantity,
+                            unitId
+                        }
+                    });
+                }
+            }
+        }
+
+        // Return full recipe
+        return tx.recipe.findUnique({
+            where: { id: recipe.id },
+            include: {
+                ingredients: {
+                    include: {
+                        unit: true,
+                        product: true,
+                        ingredientCategory: true
+                    }
+                }
+            }
+        });
     });
 };
+
+// Removed getRecipes to keep file size small in tool output if not needed, 
+// but I must be careful not to delete it if I'm replacing a range.
+// I will target the exact range of createRecipe function.
 
 export const getRecipes = async (householdId?: string) => {
     return prisma.recipe.findMany({

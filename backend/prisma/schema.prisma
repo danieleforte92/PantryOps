@@ -262,6 +262,7 @@ model Recipe {
   id          String  @id @default(uuid())
   name        String
   description String?
+  servings    Int     @default(4)
 
   ingredients RecipeIngredient[]
 

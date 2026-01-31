@@ -3,6 +3,7 @@ import { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import prisma from '../lib/prisma';
 import { updateProjections } from '../services/projections';
+import { resolveCategoryStock } from '../services/categoryService';
 
 const purchaseSchema = z.object({
     householdId: z.string().uuid(),
@@ -206,12 +207,20 @@ export async function stockRoutes(app: FastifyInstance) {
             params: z.object({ id: z.string().uuid() }),
             body: z.object({
                 userId: z.string().uuid(),
-                servings: z.number().int().positive().optional()
+                servings: z.number().int().positive().optional(),
+                productSelections: z.array(z.object({
+                    categoryId: z.string().uuid().optional(),
+                    productId: z.string().uuid(),
+                    quantity: z.number().positive(),
+                })).optional()
             })
         }
     }, async (request, reply) => {
         const { id } = request.params;
-        const { userId, servings } = request.body;
+        const { userId, servings, productSelections } = request.body;
+
+        const householdId = (await prisma.household.findFirst())?.id; // Mock auth
+        if (!householdId) return reply.status(400).send({ error: 'No household found' });
 
         const recipe = await prisma.recipe.findUnique({
             where: { id },
@@ -220,7 +229,8 @@ export async function stockRoutes(app: FastifyInstance) {
                     include: {
                         product: {
                             include: { currentStock: true }
-                        }
+                        },
+                        ingredientCategory: true
                     }
                 }
             }
@@ -228,31 +238,35 @@ export async function stockRoutes(app: FastifyInstance) {
 
         if (!recipe) return reply.status(404).send({ error: 'Recipe not found' });
 
-        const householdId = (await prisma.household.findFirst())?.id; // Mock auth
-        if (!householdId) return reply.status(400).send({ error: 'No household found' });
-
         const actualServings = (recipe as any).servings || 1;
         const factor = servings ? (servings / actualServings) : 1;
 
+        // Build allocation plan
+        let allocationPlan: Array<{
+            productId: string;
+            categoryId?: string;
+            required: number;
+            lots: Array<{ lotId: string; amount: number }>;
+        }> = [];
+
         for (const ing of recipe.ingredients) {
             const required = ing.quantity * factor;
-            const available = ing.product.currentStock?.quantity || 0;
-            if (available < required) {
-                return reply.status(400).send({
-                    error: 'STOCK_INSUFFICIENT',
-                    product: ing.product.name,
-                    required,
-                    available
-                });
-            }
-        }
 
-        await prisma.$transaction(async (tx) => {
-            for (const ing of recipe.ingredients) {
-                const required = ing.quantity * factor;
-                let remaining = required;
+            if (ing.productId) {
+                // LEGACY: Product based - use FEFO within product
+                const available = ing.product.currentStock?.quantity || 0;
 
-                const lots = await tx.stockLotBalance.findMany({
+                if (available < required) {
+                    return reply.status(400).send({
+                        error: 'STOCK_INSUFFICIENT',
+                        product: ing.product.name,
+                        required,
+                        available
+                    });
+                }
+
+                // Get FEFO lots
+                const lots = await prisma.stockLotBalance.findMany({
                     where: {
                         householdId,
                         productId: ing.productId,
@@ -264,34 +278,154 @@ export async function stockRoutes(app: FastifyInstance) {
                     ]
                 });
 
+                // Calculate lot allocation
+                let remaining = required;
+                const lotAllocations = [];
                 for (const lot of lots) {
                     if (remaining <= 0) break;
                     const consumeAmount = Math.min(lot.remainingQuantity, remaining);
+                    lotAllocations.push({ lotId: lot.stockLotId, amount: consumeAmount });
+                    remaining -= consumeAmount;
+                }
 
+                allocationPlan.push({
+                    productId: ing.productId,
+                    required,
+                    lots: lotAllocations
+                });
+
+            } else if (ing.ingredientCategoryId) {
+                // NEW: Category based
+                if (productSelections && productSelections.length > 0) {
+                    // USER SELECTION: Use provided selections
+                    const categorySelections = productSelections.filter(s => s.categoryId === ing.ingredientCategoryId);
+                    const totalSelected = categorySelections.reduce((sum, s) => sum + s.quantity, 0);
+
+                    if (totalSelected < required) {
+                        return reply.status(400).send({
+                            error: 'INSUFFICIENT_SELECTION',
+                            category: ing.ingredientCategory?.name,
+                            required,
+                            selected: totalSelected
+                        });
+                    }
+
+                    for (const sel of categorySelections) {
+                        // For each selected product, get FEFO lots
+                        const lots = await prisma.stockLotBalance.findMany({
+                            where: {
+                                householdId,
+                                productId: sel.productId,
+                                remainingQuantity: { gt: 0 }
+                            },
+                            orderBy: [
+                                { bestBeforeDate: 'asc' },
+                                { purchasedAt: 'asc' }
+                            ]
+                        });
+
+                        let remaining = sel.quantity;
+                        const lotAllocations = [];
+                        for (const lot of lots) {
+                            if (remaining <= 0) break;
+                            const consumeAmount = Math.min(lot.remainingQuantity, remaining);
+                            lotAllocations.push({ lotId: lot.stockLotId, amount: consumeAmount });
+                            remaining -= consumeAmount;
+                        }
+
+                        allocationPlan.push({
+                            productId: sel.productId,
+                            categoryId: ing.ingredientCategoryId,
+                            required: sel.quantity,
+                            lots: lotAllocations
+                        });
+                    }
+
+                } else {
+                    // AUTO-FEFO: No user selection, use category resolution
+                    const resolution = await resolveCategoryStock(
+                        ing.ingredientCategoryId,
+                        householdId
+                    );
+
+                    const availableTotal = resolution.totalAvailable;
+
+                    if (availableTotal < required) {
+                        return reply.status(400).send({
+                            error: 'STOCK_INSUFFICIENT',
+                            category: ing.ingredientCategory?.name,
+                            required,
+                            available: availableTotal
+                        });
+                    }
+
+                    // Allocate across products by priority + stock
+                    let remainingRequired = required;
+                    for (const sp of resolution.suggestedProducts) {
+                        if (remainingRequired <= 0) break;
+
+                        const lots = await prisma.stockLotBalance.findMany({
+                            where: {
+                                householdId,
+                                productId: sp.productId,
+                                remainingQuantity: { gt: 0 }
+                            },
+                            orderBy: [
+                                { bestBeforeDate: 'asc' },
+                                { purchasedAt: 'asc' }
+                            ]
+                        });
+
+                        let remaining = Math.min(sp.availableQuantity, remainingRequired);
+                        const lotAllocations = [];
+                        for (const lot of lots) {
+                            if (remaining <= 0) break;
+                            const consumeAmount = Math.min(lot.remainingQuantity, remaining);
+                            lotAllocations.push({ lotId: lot.stockLotId, amount: consumeAmount });
+                            remaining -= consumeAmount;
+                        }
+
+                        allocationPlan.push({
+                            productId: sp.productId,
+                            categoryId: ing.ingredientCategoryId,
+                            required: Math.min(sp.availableQuantity, remainingRequired),
+                            lots: lotAllocations
+                        });
+
+                        remainingRequired -= Math.min(sp.availableQuantity, remainingRequired);
+                    }
+                }
+            }
+        }
+
+        // Execute consumption in transaction
+        await prisma.$transaction(async (tx) => {
+            for (const alloc of allocationPlan) {
+                for (const lotAlloc of alloc.lots) {
                     await tx.stockTransaction.create({
                         data: {
                             householdId,
-                            productId: ing.productId,
-                            stockLotId: lot.stockLotId,
+                            productId: alloc.productId,
+                            stockLotId: lotAlloc.lotId,
                             type: 'CONSUME',
-                            amount: -consumeAmount,
+                            amount: -lotAlloc.amount,
                             userId
                         }
                     });
 
                     await tx.currentStock.update({
-                        where: { householdId_productId: { householdId, productId: ing.productId } },
-                        data: { quantity: { decrement: consumeAmount } }
+                        where: { householdId_productId: { householdId, productId: alloc.productId } },
+                        data: { quantity: { decrement: lotAlloc.amount } }
                     });
 
                     await tx.stockLotBalance.update({
-                        where: { stockLotId: lot.stockLotId },
-                        data: { remainingQuantity: { decrement: consumeAmount } }
+                        where: { stockLotId: lotAlloc.lotId },
+                        data: { remainingQuantity: { decrement: lotAlloc.amount } }
                     });
-
-                    remaining -= consumeAmount;
                 }
             }
+
+            await updateProjections(householdId);
         });
 
         return { success: true };

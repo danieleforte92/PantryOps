@@ -412,6 +412,108 @@ export async function getAllCategoriesWithMappings(
 }
 
 /**
+ * Resolves category-based ingredient to available products using FEFO + Priority
+ * 
+ * Algorithm:
+ * 1. Get all products in category (sorted by user priority)
+ * 2. For each product, get all lots with stock > 0
+ * 3. Sort lots by FEFO (bestBeforeDate ASC, purchasedAt ASC)
+ * 4. Sum remainingQuantity per product
+ * 5. Return total available + suggested products sorted by priority + stock
+ * 
+ * @param ingredientCategoryId - Category to resolve
+ * @param householdId - Household context
+ * @returns Available stock and suggested products
+ */
+export async function resolveCategoryStock(
+  ingredientCategoryId: string,
+  householdId: string
+): Promise<{
+  totalAvailable: number;
+  suggestedProducts: Array<{
+    productId: string;
+    productName: string;
+    productImage: string | null;
+    priority: number;
+    availableQuantity: number;
+    stockUnitName: string;
+    suggestedQuantity: number;
+  }>;
+}> {
+  await validateCategoryOwnership(ingredientCategoryId, householdId);
+
+  // 1. Get products in category with priority
+  const mappings = await prisma.productIngredientCategory.findMany({
+    where: { ingredientCategoryId },
+    include: {
+      product: {
+        include: {
+          stockUnit: true,
+          // Get lots with balance > 0, sorted by FEFO
+          stockLots: {
+            include: {
+              balance: true,
+            },
+            where: {
+              balance: {
+                remainingQuantity: {
+                  gt: 0,
+                },
+              },
+            },
+            orderBy: [
+              { bestBeforeDate: 'asc' },  // FEFO: expiring first
+              { purchasedAt: 'asc' },       // FEFO: oldest first
+            ],
+          },
+        },
+      },
+    },
+    orderBy: [
+      { priority: 'asc' },  // User priority preference
+      { product: { name: 'asc' } },
+    ],
+  });
+
+  // 2. Calculate available stock per product
+  const productsWithStock = mappings
+    .map((mapping) => ({
+      productId: mapping.product.id,
+      productName: mapping.product.name,
+      productImage: mapping.product.imageUrl,
+      priority: mapping.priority ?? 1,
+      stockUnitName: mapping.product.stockUnit.name,
+      availableQuantity: mapping.product.stockLots.reduce(
+        (sum, lot) => sum + (lot.balance?.remainingQuantity || 0),
+        0
+      ),
+      suggestedQuantity: 0, // Will be calculated in Step 5
+    }))
+    .filter((p) => p.availableQuantity > 0);
+
+  // 3. Sort by: priority (ASC) then available (DESC)
+  productsWithStock.sort((a, b) => {
+    // Lower priority number = higher priority (user preference)
+    if (a.priority !== b.priority) {
+      return a.priority - b.priority;
+    }
+    // More stock = higher suggestion rank
+    return b.availableQuantity - a.availableQuantity;
+  });
+
+  // 4. Calculate total available
+  const totalAvailable = productsWithStock.reduce(
+    (sum, p) => sum + p.availableQuantity,
+    0
+  );
+
+  return {
+    totalAvailable,
+    suggestedProducts: productsWithStock,
+  };
+}
+
+/**
  * Get a single category with its products
  */
 export async function getCategoryWithProducts(

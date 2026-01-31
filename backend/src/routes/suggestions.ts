@@ -1,6 +1,57 @@
 import { FastifyInstance } from 'fastify';
 import z from 'zod';
 import prisma from '../lib/prisma';
+import { resolveCategoryStock } from '../services/categoryService';
+
+/**
+ * Checks if any product in category has expiring lots
+ * Used for expiring bonus in recipe suggestions
+ * 
+ * @param categoryId - Category to check
+ * @param householdId - Household context
+ * @param beforeDate - Date threshold for expiring
+ * @returns true if any product has lots expiring before threshold
+ */
+async function hasExpiringProductsInCategory(
+  categoryId: string,
+  householdId: string,
+  beforeDate: Date
+): Promise<boolean> {
+  const productsInCategory = await prisma.productIngredientCategory.findMany({
+    where: { ingredientCategoryId: categoryId },
+    include: {
+      product: {
+        include: {
+          stockLots: {
+            where: {
+              balance: {
+                remainingQuantity: {
+                  gt: 0,
+                },
+              },
+            },
+            orderBy: {
+              bestBeforeDate: 'asc',
+            },
+          },
+        },
+      },
+    },
+    take: 1, // We only need to know IF any exists, not all
+  });
+
+  if (productsInCategory.length === 0) return false;
+
+  const product = productsInCategory[0].product;
+  if (!product.stockLots || product.stockLots.length === 0) return false;
+
+  // Check if first (earliest expiring) lot is before threshold
+  const earliestExpiringLot = product.stockLots[0];
+  return (
+    earliestExpiringLot.bestBeforeDate !== null &&
+    earliestExpiringLot.bestBeforeDate <= beforeDate
+  );
+}
 
 export async function suggestionRoutes(app: FastifyInstance) {
     app.get('/today', async (request, reply) => {
@@ -33,28 +84,49 @@ export async function suggestionRoutes(app: FastifyInstance) {
         const inThreeDays = new Date();
         inThreeDays.setDate(today.getDate() + 3);
 
-        const scoredRecipes = recipes.map(recipe => {
+        const scoredRecipes = await Promise.all(recipes.map(async (recipe) => {
             let totalIngredients = recipe.ingredients.length;
             let availableIngredients = 0;
             let usesExpiringItems = false;
 
-            recipe.ingredients.forEach(ing => {
-                // Se è category-based (no product), per ora consideriamo 0 disponibile
-                if (!ing.product) {
-                    return; // Counted as missing by default (total - available)
+            for (const ing of recipe.ingredients) {
+                let available = 0;
+                let hasExpiringLot = false;
+
+                if (ing.productId) {
+                    // Legacy: Product based
+                    available = ing.product.currentStock?.quantity || 0;
+
+                    // Check for expiring lots
+                    if (ing.product.stockLots) {
+                        hasExpiringLot = ing.product.stockLots.some(lot =>
+                            lot.bestBeforeDate && lot.bestBeforeDate <= inThreeDays
+                        );
+                    }
+                } else if (ing.ingredientCategoryId) {
+                    // NEW: Category based - Resolve category stock
+                    const resolution = await resolveCategoryStock(
+                        ing.ingredientCategoryId,
+                        householdId
+                    );
+                    available = resolution.totalAvailable;
+
+                    // Check if any product in category has expiring lots
+                    hasExpiringLot = await hasExpiringProductsInCategory(
+                        ing.ingredientCategoryId,
+                        householdId,
+                        inThreeDays
+                    );
                 }
 
-                const available = ing.product.currentStock?.quantity || 0;
                 if (available >= ing.quantity) {
                     availableIngredients++;
                 }
 
-                // Check for expiring lots of this product
-                const hasExpiringLot = ing.product.stockLots.some(lot =>
-                    lot.bestBeforeDate && lot.bestBeforeDate <= inThreeDays
-                );
-                if (hasExpiringLot) usesExpiringItems = true;
-            });
+                if (hasExpiringLot) {
+                    usesExpiringItems = true;
+                }
+            }
 
             const matchPercentage = totalIngredients > 0 ? (availableIngredients / totalIngredients) * 100 : 0;
             const missingIngredientsCount = totalIngredients - availableIngredients;
@@ -68,7 +140,7 @@ export async function suggestionRoutes(app: FastifyInstance) {
                 // Simple score: match percentage + bonus for expiring items
                 score: matchPercentage + (usesExpiringItems ? 50 : 0)
             };
-        });
+        }));
 
         // 2. Sort by score
         return scoredRecipes
@@ -105,24 +177,44 @@ export async function suggestionRoutes(app: FastifyInstance) {
 
         if (!recipe) return reply.status(404).send({ error: 'Recipe not found' });
 
-        const ingredients = recipe.ingredients.map((ing: any) => {
+        const ingredients = await Promise.all(recipe.ingredients.map(async (ing: any) => {
             const required = ing.quantity;
             let available = 0;
             let name = 'Unknown Item';
             let id = ing.id;
 
-            if (ing.product) {
+            if (ing.productId) {
                 // Legacy: Product based
                 available = ing.product.currentStock?.quantity || 0;
                 name = ing.product.name;
                 id = ing.productId;
-            } else if (ing.ingredientCategory) {
-                // New: Category based
-                // TODO: Implement Category Resolution Logic (Metadata Resolution)
-                // Per ora assumiamo 0 disponibilità finché non implementiamo il matching
-                available = 0;
+            } else if (ing.ingredientCategoryId) {
+                // NEW: Category based - Resolve category stock with suggested products
+                const resolution = await resolveCategoryStock(
+                    ing.ingredientCategoryId,
+                    householdId
+                );
+                available = resolution.totalAvailable;
                 name = ing.ingredientCategory.name;
                 id = ing.ingredientCategoryId;
+
+                // Calculate suggested quantities (distribute required across products by priority)
+                const totalRequired = ing.quantity;
+                let remainingRequired = totalRequired;
+                const suggestedProductsWithQuantities = resolution.suggestedProducts.map((sp: any) => ({
+                    ...sp,
+                    suggestedQuantity: 0
+                }));
+
+                // Distribute required quantity across products by priority
+                for (let i = 0; i < suggestedProductsWithQuantities.length && remainingRequired > 0; i++) {
+                    const consume = Math.min(suggestedProductsWithQuantities[i].availableQuantity, remainingRequired);
+                    suggestedProductsWithQuantities[i].suggestedQuantity = consume;
+                    remainingRequired -= consume;
+                }
+
+                // Attach suggested products to ingredient
+                ingredient.suggestedProducts = suggestedProductsWithQuantities;
             }
 
             const missing = Math.max(0, required - available);
@@ -133,9 +225,10 @@ export async function suggestionRoutes(app: FastifyInstance) {
                 required,
                 available,
                 missing,
-                unit: ing.unit.abbreviation
+                unit: ing.unit.abbreviation,
+                suggestedProducts: ingredient.suggestedProducts || undefined
             };
-        });
+        }));
 
         return {
             ingredients,

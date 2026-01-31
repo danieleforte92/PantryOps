@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { queriesApi, stockApi, productsApi, shoppingApi, recipesApi, suggestionsApi, ingredientCategoriesApi, categoriesApi } from '../api/client';
+import { queriesApi, stockApi, productsApi, shoppingApi, recipesApi, suggestionsApi, ingredientCategoriesApi, categoriesApi, type ProductSelection } from '../api/client';
 
 // Get current user context (for MVP, stored in localStorage)
 export function useAuth() {
@@ -274,8 +274,8 @@ export function useCookRecipe() {
     const { user } = useAuth();
 
     return useMutation({
-        mutationFn: ({ recipeId, servings }: { recipeId: string; servings?: number }) =>
-            recipesApi.cook(recipeId, user.id, servings),
+        mutationFn: ({ recipeId, servings, productSelections }: { recipeId: string; servings?: number; productSelections?: ProductSelection[] }) =>
+            recipesApi.cook(recipeId, user.id, servings, productSelections),
         onSuccess: () => {
             // Invalidate everything stock related
             queryClient.invalidateQueries({ queryKey: ['current-stock'] });

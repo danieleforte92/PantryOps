@@ -150,10 +150,10 @@ export const recipesApi = {
     preview: (id: string, servings?: number) =>
         fetchApi<RecipePreview>(`/suggestions/recipes/${id}/preview${servings ? `?servings=${servings}` : ''}`),
 
-    cook: (id: string, userId: string, servings?: number) =>
+    cook: (id: string, userId: string, servings?: number, productSelections?: ProductSelection[]) =>
         fetchApi<{ success: boolean }>(`/stock/recipe-cook/${id}`, {
             method: 'POST',
-            body: JSON.stringify({ userId, servings }),
+            body: JSON.stringify({ userId, servings, productSelections }),
         }),
 };
 
@@ -422,11 +422,29 @@ export interface RecipePreviewItem {
     available: number;
     missing: number;
     unit: string;
+    suggestedProducts?: SuggestedProduct[];
 }
 
 export interface RecipePreview {
     ingredients: RecipePreviewItem[];
     canCook: boolean;
+}
+
+// Step 5: Suggested products for category-based cooking
+export interface SuggestedProduct {
+    productId: string;
+    productName: string;
+    productImage: string | null;
+    priority: number;
+    availableQuantity: number;
+    stockUnitName: string;
+    suggestedQuantity: number;
+}
+
+export interface ProductSelection {
+    categoryId?: string;
+    productId: string;
+    quantity: number;
 }
 
 export interface TodaySuggestion {

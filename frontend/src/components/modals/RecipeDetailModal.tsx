@@ -5,6 +5,8 @@ import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { useState } from 'react';
 import CookConfirmationModal from './CookConfirmationModal';
+import ProductSelectionModal from './ProductSelectionModal';
+import type { ProductSelection } from '../../api/client';
 
 interface Recipe {
     id: string;
@@ -30,13 +32,28 @@ export default function RecipeDetailModal({ recipe, onClose }: RecipeDetailModal
     const { data: preview, isLoading } = useRecipePreview(recipe.id, servings);
     const { mutateAsync: cookRecipe } = useCookRecipe();
     const [cooking, setCooking] = useState(false);
+    const [showProductSelection, setShowProductSelection] = useState(false);
+    const [productSelections, setProductSelections] = useState<ProductSelection[]>([]);
+
+    // Check if recipe has category-based ingredients
+    const hasCategoryIngredients = preview?.ingredients.some((ing: any) => ing.suggestedProducts && ing.suggestedProducts.length > 0);
 
     const handleStartCooking = () => {
+        if (hasCategoryIngredients) {
+            setShowProductSelection(true);
+        } else {
+            setCooking(true);
+        }
+    };
+
+    const handleProductSelectionConfirm = (selections: ProductSelection[]) => {
+        setProductSelections(selections);
+        setShowProductSelection(false);
         setCooking(true);
     };
 
     const confirmCook = async () => {
-        await cookRecipe({ recipeId: recipe.id, servings });
+        await cookRecipe({ recipeId: recipe.id, servings, productSelections });
     };
 
     if (isLoading) return null; // Or skeleton
@@ -146,6 +163,21 @@ export default function RecipeDetailModal({ recipe, onClose }: RecipeDetailModal
                         Attenzione: questa azione consumerà le scorte dal magazzino
                     </p>
                 </div>
+
+                {/* Product Selection Modal */}
+                {showProductSelection && preview && (
+                    <ProductSelectionModal
+                        suggestedProducts={preview.ingredients.reduce((acc: any, ing: any) => {
+                            if (ing.suggestedProducts) {
+                                acc[ing.productId] = ing.suggestedProducts;
+                            }
+                            return acc;
+                        }, {})}
+                        recipeIngredients={preview.ingredients}
+                        onConfirm={handleProductSelectionConfirm}
+                        onCancel={() => setShowProductSelection(false)}
+                    />
+                )}
 
                 {/* Cook Confirmation Modal Integration */}
                 {cooking && (

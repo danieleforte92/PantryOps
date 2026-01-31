@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { queriesApi, stockApi, productsApi, shoppingApi, recipesApi, suggestionsApi, ingredientCategoriesApi } from '../api/client';
+import { queriesApi, stockApi, productsApi, shoppingApi, recipesApi, suggestionsApi, ingredientCategoriesApi, categoriesApi } from '../api/client';
 
 // Get current user context (for MVP, stored in localStorage)
 export function useAuth() {
@@ -308,5 +308,67 @@ export function useIngredientCategories() {
         queryKey: ['ingredient-categories', household?.id],
         queryFn: () => ingredientCategoriesApi.getAll(household.id),
         enabled: !!household?.id,
+    });
+}
+
+// Categories Query
+export function useCategories() {
+    const { household } = useAuth();
+    return useQuery({
+        queryKey: ['categories', household?.id],
+        queryFn: () => categoriesApi.getAll(household.id),
+        enabled: !!household?.id,
+    });
+}
+
+// Categories with Mappings Query (for UI)
+export function useCategoriesWithMappings() {
+    const { household } = useAuth();
+    return useQuery({
+        queryKey: ['categories-mapped', household?.id],
+        queryFn: () => categoriesApi.getAllMapped(household.id),
+        enabled: !!household?.id,
+    });
+}
+
+// Assign Product to Category Mutation
+export function useAssignProductToCategory() {
+    const queryClient = useQueryClient();
+    const { household } = useAuth();
+    return useMutation({
+        mutationFn: ({ categoryId, productId, priority }: { categoryId: string; productId: string; priority?: number }) =>
+            categoriesApi.assignProduct(categoryId, productId, household.id, priority),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['categories-mapped'] });
+            queryClient.invalidateQueries({ queryKey: ['categories'] });
+        },
+    });
+}
+
+// Remove Product from Category Mutation
+export function useRemoveProductFromCategory() {
+    const queryClient = useQueryClient();
+    const { household } = useAuth();
+    return useMutation({
+        mutationFn: ({ categoryId, productId }: { categoryId: string; productId: string }) =>
+            categoriesApi.removeProduct(categoryId, productId, household.id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['categories-mapped'] });
+            queryClient.invalidateQueries({ queryKey: ['categories'] });
+        },
+    });
+}
+
+// Update Mapping Priority Mutation
+export function useUpdateMappingPriority() {
+    const queryClient = useQueryClient();
+    const { household } = useAuth();
+    return useMutation({
+        mutationFn: ({ categoryId, productId, priority }: { categoryId: string; productId: string; priority: number }) =>
+            categoriesApi.updatePriority(categoryId, productId, household.id, priority),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['categories-mapped'] });
+            queryClient.invalidateQueries({ queryKey: ['categories'] });
+        },
     });
 }

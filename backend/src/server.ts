@@ -9,6 +9,7 @@ import { queryRoutes } from './routes/queries';
 import { shoppingRoutes } from './routes/shopping';
 import { recipeRoutes } from './routes/recipes';
 import { suggestionRoutes } from './routes/suggestions';
+import { categoryRoutes } from './routes/categories';
 import { seedGlobalData } from './services/seedService';
 
 const app = Fastify({
@@ -48,6 +49,7 @@ app.register(queryRoutes, { prefix: '/api/queries' });
 app.register(shoppingRoutes, { prefix: '/api/shopping' });
 app.register(recipeRoutes, { prefix: '/api/recipes' });
 app.register(suggestionRoutes, { prefix: '/api/suggestions' });
+app.register(categoryRoutes, { prefix: '/api/categories' });
 
 // Start server
 const start = async () => {

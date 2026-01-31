@@ -1,7 +1,8 @@
-import { useAuth, clearAuth } from '../hooks/useApi';
+import { useAuth, clearAuth, useCategoriesWithMappings, useProducts } from '../hooks/useApi';
 import { User as UserIcon, LogOut, Settings, Users, Moon, Sun, ChevronRight } from 'lucide-react';
 import { useState, ReactNode } from 'react';
 import { Button } from '../components/ui/Button';
+import MappingManagementModal from '../components/modals/MappingManagementModal';
 
 interface SettingItem {
     label: string;
@@ -20,6 +21,23 @@ interface SettingSection {
 export default function SettingsPage() {
     const { user, household } = useAuth();
     const [isDarkMode, setIsDarkMode] = useState(document.documentElement.classList.contains('dark'));
+    const [showMappingModal, setShowMappingModal] = useState(false);
+
+    // Get mapping stats
+    const { data: categoriesData } = useCategoriesWithMappings();
+    const { data: productsData } = useProducts();
+
+    const categories = categoriesData?.categories ?? [];
+    const products = productsData?.products ?? [];
+    const totalProducts = products.length;
+    const mappedProducts = categories.reduce((sum, cat) => sum + cat.products.length, 0);
+    const mappingPercentage = totalProducts > 0 ? Math.round((mappedProducts / totalProducts) * 100) : 0;
+
+    const getBadgeColor = (percentage: number) => {
+        if (percentage > 80) return 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400';
+        if (percentage > 50) return 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400';
+        return 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400';
+    };
 
     const handleLogout = () => {
         clearAuth();
@@ -56,9 +74,20 @@ export default function SettingsPage() {
             ]
         },
         {
-            title: 'App',
+            title: 'Gestione',
             icon: <Settings className="text-gray-400" />,
             items: [
+                {
+                    label: 'Categorie Prodotti',
+                    sublabel: `${mappingPercentage}% prodotti mappati`,
+                    value: `${mappedProducts}/${totalProducts}`,
+                    onClick: () => setShowMappingModal(true),
+                    action: (
+                        <div className={`px-2 py-1 rounded-full text-xs font-bold ${getBadgeColor(mappingPercentage)}`}>
+                            {mappingPercentage}%
+                        </div>
+                    )
+                },
                 {
                     label: 'Notifiche',
                     sublabel: 'Avvisi scadenza e scorte',
@@ -138,6 +167,13 @@ export default function SettingsPage() {
             <div className="mt-4 text-center">
                 <p className="text-xs text-text-muted">BetterGrocy v1.0.0 • Made with ❤️ for your Kitchen</p>
             </div>
+
+            {/* Mapping Management Modal */}
+            {showMappingModal && (
+                <MappingManagementModal
+                    onClose={() => setShowMappingModal(false)}
+                />
+            )}
         </div>
     );
 }

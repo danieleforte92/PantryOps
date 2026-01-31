@@ -169,6 +169,45 @@ export const ingredientCategoriesApi = {
         fetchApi<{ categories: IngredientCategory[] }>(`/recipes/ingredient-categories?householdId=${householdId}`),
 };
 
+// Categories API (NEW)
+export const categoriesApi = {
+    // List all categories
+    getAll: (householdId: string) =>
+        fetchApi<{ categories: Category[] }>(`/categories?householdId=${householdId}`),
+
+    // Get category with products (single)
+    getWithProducts: (categoryId: string, householdId: string) =>
+        fetchApi<{ category: CategoryWithProducts }>(`/categories/${categoryId}?householdId=${householdId}`),
+
+    // Get products in a category
+    getProducts: (categoryId: string, householdId: string) =>
+        fetchApi<{ products: ProductMapping[] }>(`/categories/${categoryId}/products?householdId=${householdId}`),
+
+    // Assign product to category
+    assignProduct: (categoryId: string, productId: string, householdId: string, priority?: number) =>
+        fetchApi<{ mapping: ProductMapping }>(`/categories/${categoryId}/products?householdId=${householdId}`, {
+            method: 'POST',
+            body: JSON.stringify({ productId, priority }),
+        }),
+
+    // Remove product from category
+    removeProduct: (categoryId: string, productId: string, householdId: string) =>
+        fetchApi<{ success: boolean }>(`/categories/${categoryId}/products/${productId}?householdId=${householdId}`, {
+            method: 'DELETE',
+        }),
+
+    // Update priority
+    updatePriority: (categoryId: string, productId: string, householdId: string, priority: number) =>
+        fetchApi<{ mapping: ProductMapping }>(`/categories/${categoryId}/products/${productId}/priority?householdId=${householdId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ priority }),
+        }),
+
+    // Bulk load: all categories with products
+    getAllMapped: (householdId: string) =>
+        fetchApi<{ categories: CategoryWithProducts[] }>(`/categories/mapped?householdId=${householdId}`),
+};
+
 // Types
 export interface User {
     id: string;
@@ -344,6 +383,36 @@ export interface IngredientCategory {
     id: string;
     name: string;
     baseUnit: Unit;
+}
+
+// Category types for product-category mapping
+export interface Category {
+    id: string;
+    name: string;
+    baseUnit: Unit;
+    productCount?: number;
+}
+
+export interface CategoryWithProducts {
+    id: string;
+    name: string;
+    baseUnit: {
+        id: string;
+        name: string;
+        abbreviation: string;
+    };
+    products: ProductMapping[];
+}
+
+export interface ProductMapping {
+    id: string;
+    name: string;
+    description: string | null;
+    imageUrl: string | null;
+    priority: number;
+    currentStock: number;
+    stockUnitId: string;
+    stockUnitName: string;
 }
 
 export interface RecipePreviewItem {

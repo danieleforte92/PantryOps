@@ -4,7 +4,9 @@ backend/node_modules
 
 # other
 frontend/.bun
+frontend/dist
 backend/.bun
+backend/dist
 
 # env files
 .env

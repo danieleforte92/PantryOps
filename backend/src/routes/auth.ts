@@ -3,6 +3,7 @@ import { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import prisma from '../lib/prisma';
+import { seedHouseholdData } from '../services/seedService';
 
 const registerSchema = z.object({
     email: z.string().email(),
@@ -72,6 +73,17 @@ export async function authRoutes(app: FastifyInstance) {
 
             return { user, household };
         });
+
+        // Seed household data (blocking - wait for completion before returning)
+        // Only in non-production environments
+        if (process.env.NODE_ENV !== 'production') {
+            try {
+                await seedHouseholdData(result.household.id);
+            } catch (err) {
+                // Log error but don't fail registration - demo data is optional
+                console.error('⚠️ Household seed failed (registration continues):', err);
+            }
+        }
 
         return {
             message: 'Registration successful',

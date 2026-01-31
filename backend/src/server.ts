@@ -9,6 +9,7 @@ import { queryRoutes } from './routes/queries';
 import { shoppingRoutes } from './routes/shopping';
 import { recipeRoutes } from './routes/recipes';
 import { suggestionRoutes } from './routes/suggestions';
+import { seedGlobalData } from './services/seedService';
 
 const app = Fastify({
     logger: true,
@@ -18,6 +19,10 @@ const app = Fastify({
 app.setValidatorCompiler(validatorCompiler);
 app.setSerializerCompiler(serializerCompiler);
 
+// Seed global data on startup (units)
+if (process.env.NODE_ENV !== 'test') {
+    await seedGlobalData();
+}
 
 // CORS for frontend
 const corsOrigins = process.env.CORS_ORIGIN

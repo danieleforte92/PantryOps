@@ -1,59 +1,33 @@
-import { PrismaClient } from '@prisma/client';
+import { seedGlobalData, seedHouseholdData } from '../src/services/seedService';
+import prisma from '../src/lib/prisma';
 
-const prisma = new PrismaClient();
-
+/**
+ * Prisma seed script - Entry point for `npx prisma db seed`
+ * 
+ * Seeds global data (units) only.
+ * Household-specific data is seeded automatically when households are created.
+ */
 async function main() {
-    console.log('🌱 Seeding database...');
+  console.log('🌱 Starting database seed...\n');
 
-    // Create default units
-    const units = await Promise.all([
-        prisma.unit.upsert({
-            where: { name: 'Pezzi' },
-            update: {},
-            create: { name: 'Pezzi', abbreviation: 'pz' },
-        }),
-        prisma.unit.upsert({
-            where: { name: 'Grammi' },
-            update: {},
-            create: { name: 'Grammi', abbreviation: 'g' },
-        }),
-        prisma.unit.upsert({
-            where: { name: 'Chilogrammi' },
-            update: {},
-            create: { name: 'Chilogrammi', abbreviation: 'kg' },
-        }),
-        prisma.unit.upsert({
-            where: { name: 'Millilitri' },
-            update: {},
-            create: { name: 'Millilitri', abbreviation: 'ml' },
-        }),
-        prisma.unit.upsert({
-            where: { name: 'Litri' },
-            update: {},
-            create: { name: 'Litri', abbreviation: 'l' },
-        }),
-        prisma.unit.upsert({
-            where: { name: 'Bottiglie' },
-            update: {},
-            create: { name: 'Bottiglie', abbreviation: 'bot' },
-        }),
-        prisma.unit.upsert({
-            where: { name: 'Confezioni' },
-            update: {},
-            create: { name: 'Confezioni', abbreviation: 'conf' },
-        }),
-    ]);
+  try {
+    // Seed global data (units)
+    await seedGlobalData();
 
-    console.log(`✅ Created ${units.length} units`);
-
-    console.log('🎉 Seeding complete!');
+    console.log('\n🎉 Database seed completed successfully!');
+    console.log('\n📌 Note: Household-specific data (categories, demo products, recipes)');
+    console.log('   is seeded automatically when new households are created.');
+  } catch (error) {
+    console.error('\n❌ Seed failed:', error);
+    process.exit(1);
+  }
 }
 
 main()
-    .catch((e) => {
-        console.error('❌ Seed failed:', e);
-        process.exit(1);
-    })
-    .finally(async () => {
-        await prisma.$disconnect();
-    });
+  .catch((e) => {
+    console.error('❌ Unexpected error:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

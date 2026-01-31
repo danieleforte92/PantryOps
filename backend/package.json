@@ -10,6 +10,7 @@
     "db:push": "bunx prisma db push",
     "db:seed": "bun run prisma/seed.ts",
     "db:studio": "bunx prisma studio",
+    "db:cleanup": "bun run prisma/cleanup-and-reseed.ts",
     "test": "bun test"
   },
   "dependencies": {

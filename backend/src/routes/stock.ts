@@ -425,4 +425,122 @@ export async function stockRoutes(app: FastifyInstance) {
             gamification: gamificationResult,
         };
     });
+
+    // COMMAND: Convert tutorial product to real (add expiry date)
+    fastify.post('/convert-tutorial/:lotId', {
+        schema: {
+            params: z.object({
+                lotId: z.string().uuid(),
+            }),
+            body: z.object({
+                bestBeforeDate: z.string().datetime(),
+                userId: z.string().uuid(),
+            }),
+        },
+    }, async (request) => {
+        const { lotId } = request.params;
+        const { bestBeforeDate, userId } = request.body;
+
+        // Get the tutorial lot
+        const lot = await prisma.stockLot.findUniqueOrThrow({
+            where: { id: lotId },
+            include: {
+                product: true,
+            },
+        });
+
+        if (!lot.isTutorial) {
+            throw new Error('This product is not in tutorial mode');
+        }
+
+        // Update the lot to be a real product
+        await prisma.stockLot.update({
+            where: { id: lotId },
+            data: {
+                isTutorial: false,
+                bestBeforeDate: new Date(bestBeforeDate),
+            },
+        });
+
+        // Update the balance to set the bestBeforeDate
+        await prisma.stockLotBalance.update({
+            where: { stockLotId: lotId },
+            data: {
+                bestBeforeDate: new Date(bestBeforeDate),
+            },
+        });
+
+        // Award bonus points for organizing
+        const profile = await prisma.userGamificationProfile.findUnique({
+            where: { userId },
+        });
+
+        let bonusPoints = 5;
+        let newBadge = null;
+
+        if (profile) {
+            // Increment organized products count
+            const organizedCount = await prisma.stockLot.count({
+                where: {
+                    householdId: lot.householdId,
+                    isTutorial: false,
+                    createdAt: {
+                        gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
+                    },
+                },
+            });
+
+            // Check if user organized all tutorial products (award extra)
+            const remainingTutorials = await prisma.stockLot.count({
+                where: {
+                    householdId: lot.householdId,
+                    isTutorial: true,
+                },
+            });
+
+            if (remainingTutorials === 0) {
+                // Bonus for organizing entire pantry
+                bonusPoints = 25;
+
+                // Check for "Organized" badge
+                const hasOrganizedBadge = await prisma.badge.findFirst({
+                    where: {
+                        userId: profile.id,
+                        type: 'ORGANIZED',
+                    },
+                });
+
+                if (!hasOrganizedBadge) {
+                    await prisma.badge.create({
+                        data: {
+                            userId: profile.id,
+                            type: 'ORGANIZED',
+                        },
+                    });
+                    newBadge = {
+                        type: 'ORGANIZED',
+                        name: 'Organizzato',
+                        description: 'Hai organizzato tutta la tua dispensa',
+                        icon: '📋',
+                        points: 25,
+                    };
+                }
+            }
+
+            // Add points
+            await prisma.userGamificationProfile.update({
+                where: { userId },
+                data: {
+                    totalPoints: { increment: bonusPoints },
+                },
+            });
+        }
+
+        return {
+            success: true,
+            message: 'Product converted to real with expiry date',
+            bonusPoints,
+            newBadge,
+        };
+    });
 }

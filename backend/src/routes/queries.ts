@@ -233,6 +233,49 @@ export async function queryRoutes(app: FastifyInstance) {
             all: formattedAll,
         };
     });
+
+    // Get tutorial products (products with isTutorial flag)
+    fastify.get('/tutorial-products', {
+        schema: {
+            querystring: z.object({
+                householdId: z.string().uuid(),
+            }),
+        },
+    }, async (request) => {
+        const { householdId } = request.query;
+
+        const tutorialLots = await prisma.stockLot.findMany({
+            where: {
+                householdId,
+                isTutorial: true,
+            },
+            include: {
+                product: {
+                    include: {
+                        stockUnit: true,
+                    },
+                },
+                location: true,
+                balance: true,
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        const formatted = tutorialLots.map((lot) => ({
+            lotId: lot.id,
+            productId: lot.productId,
+            name: lot.product.name,
+            quantity: lot.balance?.remainingQuantity || 0,
+            unit: lot.product.stockUnit.abbreviation,
+            location: lot.location.name,
+            addedAt: lot.createdAt,
+        }));
+
+        return {
+            tutorialProducts: formatted,
+            count: formatted.length,
+        };
+    });
 }
 
 function formatExpiringItem(lot: any) {

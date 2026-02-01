@@ -5,6 +5,7 @@ import { RecipeFeaturedCard } from '../components/ui/RecipeFeaturedCard';
 import { FridgeWatchPanel } from '../components/ui/FridgeWatchPanel';
 import { LowStockPanel } from '../components/ui/LowStockPanel';
 import { GamificationWidget } from '../components/gamification';
+import { TutorialProductsPanel } from '../components/tutorial';
 import RecipeDetailModal from '../components/modals/RecipeDetailModal';
 import { useState } from 'react';
 export default function DashboardPage() {
@@ -99,6 +100,8 @@ export default function DashboardPage() {
 
                 {/* Right Column: Fridge Watch & Stats (Span 4) */}
                 <div className="xl:col-span-4 flex flex-col gap-6">
+                    <TutorialProductsPanel />
+
                     <FridgeWatchPanel expiringItems={allExpiringItems} />
 
                     <LowStockPanel items={lowStockItems} />

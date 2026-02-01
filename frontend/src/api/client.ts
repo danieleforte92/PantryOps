@@ -79,6 +79,12 @@ export const stockApi = {
             method: 'POST',
             body: JSON.stringify(data),
         }),
+
+    convertTutorial: (lotId: string, data: { bestBeforeDate: string; userId: string }) =>
+        fetchApi<{ success: boolean; message: string; bonusPoints: number; newBadge?: { type: string; name: string; description: string; icon: string; points: number } }>(`/stock/convert-tutorial/${lotId}`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
 };
 
 // Shopping List Commands
@@ -131,6 +137,9 @@ export const queriesApi = {
 
     getShoppingList: (householdId: string) =>
         fetchApi<{ suggestions: ShoppingSuggestion[]; manualItems: ShoppingListItem[]; all: ShoppingListItem[] }>(`/queries/shopping-list?householdId=${householdId}`),
+
+    getTutorialProducts: (householdId: string) =>
+        fetchApi<{ tutorialProducts: TutorialProduct[]; count: number }>(`/queries/tutorial-products?householdId=${householdId}`),
 };
 
 // Recipes
@@ -464,6 +473,16 @@ export interface TodaySuggestion {
     matchPercentage: number;
     missingIngredientsCount: number;
     usesExpiringItems: boolean;
+}
+
+export interface TutorialProduct {
+    lotId: string;
+    productId: string;
+    name: string;
+    quantity: number;
+    unit: string;
+    location: string;
+    addedAt: string;
 }
 
 // Gamification API

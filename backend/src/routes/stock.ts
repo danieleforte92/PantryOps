@@ -4,6 +4,7 @@ import { z } from 'zod';
 import prisma from '../lib/prisma';
 import { updateProjections } from '../services/projections';
 import { resolveCategoryStock } from '../services/categoryService';
+import { computeConsumption, validateConsumptionPlan } from '../services/consumptionEngine';
 
 const purchaseSchema = z.object({
     householdId: z.string().uuid(),
@@ -342,57 +343,33 @@ export async function stockRoutes(app: FastifyInstance) {
                     }
 
                 } else {
-                    // AUTO-FEFO: No user selection, use category resolution
-                    const resolution = await resolveCategoryStock(
+                    // AUTO-FEFO: No user selection, use Consumption Engine
+                    const consumptionPlan = await computeConsumption(
                         ing.ingredientCategoryId,
-                        householdId
+                        required,
+                        householdId,
+                        'preview' // Just compute plan first for validation
                     );
 
-                    const availableTotal = resolution.totalAvailable;
-
-                    if (availableTotal < required) {
+                    // Validate plan
+                    const validation = validateConsumptionPlan(consumptionPlan, required);
+                    if (!validation.valid) {
                         return reply.status(400).send({
-                            error: 'STOCK_INSUFFICIENT',
+                            error: validation.error,
                             category: ing.ingredientCategory?.name,
                             required,
-                            available: availableTotal
+                            available: consumptionPlan.totalAvailable
                         });
                     }
 
-                    // Allocate across products by priority + stock
-                    let remainingRequired = required;
-                    for (const sp of resolution.suggestedProducts) {
-                        if (remainingRequired <= 0) break;
-
-                        const lots = await prisma.stockLotBalance.findMany({
-                            where: {
-                                householdId,
-                                productId: sp.productId,
-                                remainingQuantity: { gt: 0 }
-                            },
-                            orderBy: [
-                                { bestBeforeDate: 'asc' },
-                                { purchasedAt: 'asc' }
-                            ]
-                        });
-
-                        let remaining = Math.min(sp.availableQuantity, remainingRequired);
-                        const lotAllocations = [];
-                        for (const lot of lots) {
-                            if (remaining <= 0) break;
-                            const consumeAmount = Math.min(lot.remainingQuantity, remaining);
-                            lotAllocations.push({ lotId: lot.stockLotId, amount: consumeAmount });
-                            remaining -= consumeAmount;
-                        }
-
+                    // Convert consumption plan to allocation plan
+                    for (const productAlloc of consumptionPlan.productAllocations) {
                         allocationPlan.push({
-                            productId: sp.productId,
+                            productId: productAlloc.productId,
                             categoryId: ing.ingredientCategoryId,
-                            required: Math.min(sp.availableQuantity, remainingRequired),
-                            lots: lotAllocations
+                            required: productAlloc.quantity,
+                            lots: productAlloc.lots.map(l => ({ lotId: l.lotId, amount: l.amount }))
                         });
-
-                        remainingRequired -= Math.min(sp.availableQuantity, remainingRequired);
                     }
                 }
             }

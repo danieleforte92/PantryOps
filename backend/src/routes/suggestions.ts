@@ -1,57 +1,10 @@
 import { FastifyInstance } from 'fastify';
 import z from 'zod';
 import prisma from '../lib/prisma';
-import { resolveCategoryStock } from '../services/categoryService';
-
-/**
- * Checks if any product in category has expiring lots
- * Used for expiring bonus in recipe suggestions
- * 
- * @param categoryId - Category to check
- * @param householdId - Household context
- * @param beforeDate - Date threshold for expiring
- * @returns true if any product has lots expiring before threshold
- */
-async function hasExpiringProductsInCategory(
-  categoryId: string,
-  householdId: string,
-  beforeDate: Date
-): Promise<boolean> {
-  const productsInCategory = await prisma.productIngredientCategory.findMany({
-    where: { ingredientCategoryId: categoryId },
-    include: {
-      product: {
-        include: {
-          stockLots: {
-            where: {
-              balance: {
-                remainingQuantity: {
-                  gt: 0,
-                },
-              },
-            },
-            orderBy: {
-              bestBeforeDate: 'asc',
-            },
-          },
-        },
-      },
-    },
-    take: 1, // We only need to know IF any exists, not all
-  });
-
-  if (productsInCategory.length === 0) return false;
-
-  const product = productsInCategory[0].product;
-  if (!product.stockLots || product.stockLots.length === 0) return false;
-
-  // Check if first (earliest expiring) lot is before threshold
-  const earliestExpiringLot = product.stockLots[0];
-  return (
-    earliestExpiringLot.bestBeforeDate !== null &&
-    earliestExpiringLot.bestBeforeDate <= beforeDate
-  );
-}
+import { 
+  computeConsumption, 
+  hasExpiringProductsInCategory 
+} from '../services/consumptionEngine';
 
 export async function suggestionRoutes(app: FastifyInstance) {
     app.get('/today', async (request, reply) => {
@@ -104,12 +57,14 @@ export async function suggestionRoutes(app: FastifyInstance) {
                         );
                     }
                 } else if (ing.ingredientCategoryId) {
-                    // NEW: Category based - Resolve category stock
-                    const resolution = await resolveCategoryStock(
+                    // NEW: Category based - Use Consumption Engine for consistent logic
+                    const consumptionPlan = await computeConsumption(
                         ing.ingredientCategoryId,
-                        householdId
+                        ing.quantity,
+                        householdId,
+                        'preview'
                     );
-                    available = resolution.totalAvailable;
+                    available = consumptionPlan.totalAvailable;
 
                     // Check if any product in category has expiring lots
                     hasExpiringLot = await hasExpiringProductsInCategory(
@@ -189,29 +144,28 @@ export async function suggestionRoutes(app: FastifyInstance) {
                 name = ing.product.name;
                 id = ing.productId;
             } else if (ing.ingredientCategoryId) {
-                // NEW: Category based - Resolve category stock with suggested products
-                const resolution = await resolveCategoryStock(
+                // NEW: Category based - Use Consumption Engine for consistent logic
+                const consumptionPlan = await computeConsumption(
                     ing.ingredientCategoryId,
-                    householdId
+                    ing.quantity,
+                    householdId,
+                    'preview'
                 );
-                available = resolution.totalAvailable;
+                
+                available = consumptionPlan.totalAvailable;
                 name = ing.ingredientCategory.name;
                 id = ing.ingredientCategoryId;
 
-                // Calculate suggested quantities (distribute required across products by priority)
-                const totalRequired = ing.quantity;
-                let remainingRequired = totalRequired;
-                const suggestedProductsWithQuantities = resolution.suggestedProducts.map((sp: any) => ({
-                    ...sp,
-                    suggestedQuantity: 0
+                // Convert consumption plan to suggested products format
+                const suggestedProductsWithQuantities = consumptionPlan.productAllocations.map(alloc => ({
+                    productId: alloc.productId,
+                    productName: alloc.productName,
+                    suggestedQuantity: alloc.quantity,
+                    availableQuantity: alloc.quantity, // Already capped by available
+                    priority: 1, // Default, could be fetched if needed
+                    stockUnitName: ing.unit.abbreviation,
+                    productImage: null // Could be fetched if needed
                 }));
-
-                // Distribute required quantity across products by priority
-                for (let i = 0; i < suggestedProductsWithQuantities.length && remainingRequired > 0; i++) {
-                    const consume = Math.min(suggestedProductsWithQuantities[i].availableQuantity, remainingRequired);
-                    suggestedProductsWithQuantities[i].suggestedQuantity = consume;
-                    remainingRequired -= consume;
-                }
 
                 // Attach suggested products to ingredient
                 ingredient.suggestedProducts = suggestedProductsWithQuantities;

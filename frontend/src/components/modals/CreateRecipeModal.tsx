@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Plus, Trash2, AlertCircle, CheckCircle, ChevronDown } from 'lucide-react';
+import { X, Plus, Trash2, AlertCircle, CheckCircle, ChevronDown, Lightbulb } from 'lucide-react';
 import { useCreateRecipe, useRecipes, useIngredientCategories } from '../../hooks/useApi';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -22,6 +22,7 @@ export default function CreateRecipeModal({ onClose, onSuccess }: CreateRecipeMo
     const [name, setName] = useState('');
     const [servings, setServings] = useState(4);
     const [ingredients, setIngredients] = useState<RecipeIngredientInput[]>([]);
+    const [showBanner, setShowBanner] = useState(true);
 
     // Form state per nuovo ingrediente
     const [selectedCategoryId, setSelectedCategoryId] = useState('');
@@ -164,6 +165,32 @@ export default function CreateRecipeModal({ onClose, onSuccess }: CreateRecipeMo
                         </div>
                     </div>
 
+                    {/* Educational Banner */}
+                    {showBanner && (
+                        <div className="bg-blue-900/20 border border-blue-800 rounded-2xl p-4 relative animate-in fade-in slide-in-from-top-2">
+                            <button 
+                                onClick={() => setShowBanner(false)}
+                                className="absolute top-2 right-2 text-blue-400 hover:text-blue-200 transition-colors p-1 rounded-full hover:bg-blue-900/40"
+                            >
+                                <X size={16} />
+                            </button>
+                            <div className="flex gap-3">
+                                <div className="p-2 bg-blue-900/40 rounded-xl shrink-0">
+                                    <Lightbulb size={20} className="text-blue-400" />
+                                </div>
+                                <div className="flex-1 pr-6">
+                                    <p className="font-bold text-blue-300 text-sm mb-1">
+                                        Ricette universali
+                                    </p>
+                                    <p className="text-xs text-blue-400 leading-relaxed">
+                                        Le tue ricette useranno categorie (es. "Pasta", non "Barilla").
+                                        Quando cucini, potrai scegliere quale marca usare.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Add Ingredients Section */}
                     <div className="space-y-4 p-5 bg-zinc-800/30 rounded-2xl border border-white/5">
                         <div className="flex items-center justify-between mb-2">
@@ -179,7 +206,7 @@ export default function CreateRecipeModal({ onClose, onSuccess }: CreateRecipeMo
                                     value={selectedCategoryId}
                                     onChange={(e) => setSelectedCategoryId(e.target.value)}
                                 >
-                                    <option value="" disabled>Seleziona categoria...</option>
+                                    <option value="" disabled>Scegli ingredienti categoria...</option>
                                     {categories.map((cat) => (
                                         <option key={cat.id} value={cat.id}>
                                             {cat.name} ({cat.baseUnit.abbreviation})

@@ -101,9 +101,17 @@ export const getRecipes = async (householdId?: string) => {
 /**
  * Aggiunge un ingrediente a una ricetta.
  * 
- * DUAL MODE:
- * - Se `ingredientCategoryId` → nuova ricetta (usa categoria)
- * - Se `productId` → legacy (usa prodotto specifico)
+ * ⚠️ DEPRECATION NOTICE:
+ * - `productId` è LEGACY e deprecato. Usare solo per backward compatibility.
+ * - `ingredientCategoryId` è il modo corretto per nuove ricette.
+ * 
+ * ARCHITECTURE PRINCIPLE:
+ * Le ricette devono essere universali (categoria), mai legate a prodotti specifici.
+ * La selezione del prodotto avviene SOLO nel domain stock durante il cooking.
+ * 
+ * DUAL MODE (backward compatibility):
+ * - Se `ingredientCategoryId` → ✅ CORRETTO: usa categoria (universale)
+ * - Se `productId` → ⚠️ LEGACY: usa prodotto specifico (da migrare)
  * - Almeno uno dei due è richiesto
  */
 export const addIngredientToRecipe = async (

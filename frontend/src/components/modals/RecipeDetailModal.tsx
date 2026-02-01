@@ -1,4 +1,4 @@
-import { Check, X, Clock, Users } from 'lucide-react';
+import { Check, X, Clock, Users, Lightbulb } from 'lucide-react';
 import { useRecipePreview, useCookRecipe } from '../../hooks/useApi';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -126,26 +126,90 @@ export default function RecipeDetailModal({ recipe, onClose }: RecipeDetailModal
                         {/* Ingredients */}
                         <div>
                             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Ingredienti</h3>
-                            <div className="space-y-3">
-                                {preview?.ingredients.map((ing: any) => (
-                                    <div key={ing.productId} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-zinc-800/50 border border-gray-100 dark:border-white/5">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`
-                                        w-8 h-8 rounded-full flex items-center justify-center shrink-0
-                                        ${ing.missing === 0 ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'}
-                                    `}>
-                                                {ing.missing === 0 ? <Check size={16} strokeWidth={3} /> : <X size={16} strokeWidth={3} />}
+                            <div className="space-y-4">
+                                {preview?.ingredients.map((ing: any) => {
+                                    const hasSuggestedProducts = ing.suggestedProducts && ing.suggestedProducts.length > 0;
+                                    const categoryProducts = ing.suggestedProducts || [];
+                                    
+                                    return (
+                                        <div key={ing.productId} className="space-y-2">
+                                            {/* Header ingrediente con stato */}
+                                            <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-zinc-800/50 border border-gray-100 dark:border-white/5">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`
+                                                        w-8 h-8 rounded-full flex items-center justify-center shrink-0
+                                                        ${ing.missing === 0 ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'}
+                                                    `}>
+                                                        {ing.missing === 0 ? <Check size={16} strokeWidth={3} /> : <X size={16} strokeWidth={3} />}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-gray-900 dark:text-white">{ing.productName}</p>
+                                                        <p className="text-xs text-gray-500">
+                                                            Richiesto: {ing.required} {ing.unit}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                
+                                                {/* Badge scadenza se category-based e disponibile */}
+                                                {hasSuggestedProducts && ing.missing === 0 && (
+                                                    <span className="text-xs font-bold bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 px-2 py-1 rounded-full">
+                                                        Scade tra 14 giorni
+                                                    </span>
+                                                )}
                                             </div>
-                                            <div>
-                                                <p className="font-medium text-gray-900 dark:text-white">{ing.productName}</p>
-                                                <p className="text-xs text-gray-500">
-                                                    Richiesto: {ing.required} {ing.unit}
-                                                    {ing.missing === 0 && ` • Hai: ${ing.available} ${ing.unit}`}
-                                                </p>
-                                            </div>
+
+                                            {/* Piano FEFO per category-based */}
+                                            {hasSuggestedProducts && ing.missing === 0 && (
+                                                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3">
+                                                    <p className="text-xs font-bold text-amber-900 dark:text-amber-100 mb-2 flex items-center gap-2">
+                                                        <Lightbulb size={14} />
+                                                        Pianificato per te (FEFO):
+                                                    </p>
+                                                    
+                                                    <div className="space-y-2">
+                                                        {categoryProducts
+                                                            .filter((sp: any) => sp.suggestedQuantity > 0)
+                                                            .map((sp: any) => {
+                                                                const daysUntilExpiry = sp.bestBeforeDate 
+                                                                    ? Math.ceil((new Date(sp.bestBeforeDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                                                                    : null;
+                                                                
+                                                                const expiryText = daysUntilExpiry 
+                                                                    ? daysUntilExpiry <= 3 
+                                                                        ? `Scade tra ${daysUntilExpiry} giorni`
+                                                                        : daysUntilExpiry <= 30 
+                                                                            ? `Scade tra ${daysUntilExpiry} giorni`
+                                                                            : 'Nessuna scadenza'
+                                                                    : 'Nessuna scadenza';
+                                                                
+                                                                const expiryClass = daysUntilExpiry && daysUntilExpiry <= 3 
+                                                                    ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                                                                    : daysUntilExpiry && daysUntilExpiry <= 30 
+                                                                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
+                                                                        : 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400';
+                                                                
+                                                                return (
+                                                                    <div key={sp.productId} className="flex items-center justify-between text-sm">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-gray-900 dark:text-white font-medium">{sp.productName}</span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-gray-500 dark:text-gray-400">
+                                                                                {sp.suggestedQuantity} {sp.stockUnitName}
+                                                                            </span>
+                                                                            <span className={`text-xs px-2 py-0.5 rounded font-bold ${expiryClass}`}>
+                                                                                {expiryText}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>

@@ -147,8 +147,8 @@ export const recipesApi = {
             body: JSON.stringify(data),
         }),
 
-    preview: (id: string, servings?: number) =>
-        fetchApi<RecipePreview>(`/suggestions/recipes/${id}/preview${servings ? `?servings=${servings}` : ''}`),
+    preview: (id: string, householdId: string, servings?: number) =>
+        fetchApi<RecipePreview>(`/suggestions/recipes/${id}/preview?householdId=${householdId}${servings ? `&servings=${servings}` : ''}`),
 
     cook: (id: string, userId: string, servings?: number, productSelections?: ProductSelection[]) =>
         fetchApi<{ success: boolean }>(`/stock/recipe-cook/${id}`, {

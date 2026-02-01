@@ -262,8 +262,8 @@ export function useRecipePreview(recipeId: string, servings?: number) {
     const { household } = useAuth();
 
     return useQuery({
-        queryKey: ['recipe-preview', recipeId, servings],
-        queryFn: () => recipesApi.preview(recipeId, servings),
+        queryKey: ['recipe-preview', recipeId, servings, household?.id],
+        queryFn: () => recipesApi.preview(recipeId, household!.id, servings),
         enabled: !!household?.id && !!recipeId,
     });
 }

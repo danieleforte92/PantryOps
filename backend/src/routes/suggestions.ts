@@ -107,13 +107,15 @@ export async function suggestionRoutes(app: FastifyInstance) {
     // RECIPE PREVIEW (Decision Support)
     app.get('/recipes/:id/preview', {
         schema: {
-            params: z.object({ id: z.string().uuid() })
+            params: z.object({ id: z.string().uuid() }),
+            querystring: z.object({ householdId: z.string().uuid() })
         }
     }, async (request, reply) => {
-        const { id } = (request.params as any).id; // Fix access if needed or use type provider
+        const { id } = request.params;
+        const { householdId } = request.query;
 
         const recipe = await prisma.recipe.findUnique({
-            where: { id: (request.params as any).id },
+            where: { id },
             include: {
                 ingredients: {
                     include: {
@@ -137,6 +139,7 @@ export async function suggestionRoutes(app: FastifyInstance) {
             let available = 0;
             let name = 'Unknown Item';
             let id = ing.id;
+            let suggestedProducts;
 
             if (ing.productId) {
                 // Legacy: Product based
@@ -157,7 +160,7 @@ export async function suggestionRoutes(app: FastifyInstance) {
                 id = ing.ingredientCategoryId;
 
                 // Convert consumption plan to suggested products format
-                const suggestedProductsWithQuantities = consumptionPlan.productAllocations.map(alloc => ({
+                suggestedProducts = consumptionPlan.productAllocations.map(alloc => ({
                     productId: alloc.productId,
                     productName: alloc.productName,
                     suggestedQuantity: alloc.quantity,
@@ -166,9 +169,6 @@ export async function suggestionRoutes(app: FastifyInstance) {
                     stockUnitName: ing.unit.abbreviation,
                     productImage: null // Could be fetched if needed
                 }));
-
-                // Attach suggested products to ingredient
-                ingredient.suggestedProducts = suggestedProductsWithQuantities;
             }
 
             const missing = Math.max(0, required - available);
@@ -180,7 +180,7 @@ export async function suggestionRoutes(app: FastifyInstance) {
                 available,
                 missing,
                 unit: ing.unit.abbreviation,
-                suggestedProducts: ingredient.suggestedProducts || undefined
+                suggestedProducts
             };
         }));
 

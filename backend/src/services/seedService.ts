@@ -210,14 +210,23 @@ async function seedDemoProducts(
         },
       });
 
-      // Create barcode if provided
+      // Create barcode if provided (skip if duplicate)
       if (prod.barcode) {
-        await tx.barcode.create({
-          data: {
-            code: prod.barcode,
-            productId: product.id,
-          },
+        const existingBarcode = await tx.barcode.findUnique({
+          where: { code: prod.barcode },
         });
+        
+        if (!existingBarcode) {
+          await tx.barcode.create({
+            data: {
+              code: prod.barcode,
+              productId: product.id,
+            },
+          });
+          console.log(`    ✅ Created barcode: ${prod.barcode}`);
+        } else {
+          console.log(`    ⏭️ Barcode ${prod.barcode} already exists, skipping`);
+        }
       }
 
       // Create category mapping

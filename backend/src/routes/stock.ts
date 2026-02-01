@@ -5,6 +5,7 @@ import prisma from '../lib/prisma';
 import { updateProjections } from '../services/projections';
 import { resolveCategoryStock } from '../services/categoryService';
 import { computeConsumption, validateConsumptionPlan } from '../services/consumptionEngine';
+import { trackActivity } from '../services/gamificationService';
 
 const purchaseSchema = z.object({
     householdId: z.string().uuid(),
@@ -14,6 +15,7 @@ const purchaseSchema = z.object({
     locationId: z.string().uuid().optional(),
     bestBeforeDate: z.string().datetime().optional(),
     price: z.number().positive().optional(),
+    isFirstScan: z.boolean().optional(),
 });
 
 const consumeSchema = z.object({
@@ -36,7 +38,7 @@ export async function stockRoutes(app: FastifyInstance) {
     fastify.post('/purchase', {
         schema: { body: purchaseSchema },
     }, async (request) => {
-        const { householdId, userId, productId, quantity, locationId, bestBeforeDate } = request.body;
+        const { householdId, userId, productId, quantity, locationId, bestBeforeDate, isFirstScan } = request.body;
 
         // Get product for unit conversion
         const product = await prisma.product.findUniqueOrThrow({
@@ -83,10 +85,17 @@ export async function stockRoutes(app: FastifyInstance) {
         // 3. Update projections (outside main transaction for performance)
         await updateProjections(householdId, productId, result.lot.id, stockQuantity, 'PURCHASE');
 
+        // 4. Track first scan gamification
+        let gamificationResult = null;
+        if (isFirstScan) {
+            gamificationResult = await trackActivity(userId, householdId, 'SCAN');
+        }
+
         return {
             success: true,
             lot: result.lot,
             transaction: result.transaction,
+            gamification: gamificationResult,
         };
     });
 
@@ -405,6 +414,15 @@ export async function stockRoutes(app: FastifyInstance) {
             await updateProjections(householdId);
         });
 
-        return { success: true };
+        // Track gamification for cooking
+        const gamificationResult = await trackActivity(userId, householdId, 'COOK', {
+            recipeId: id,
+            recipeName: recipe.name,
+        });
+
+        return {
+            success: true,
+            gamification: gamificationResult,
+        };
     });
 }

@@ -208,11 +208,22 @@ export const categoriesApi = {
         fetchApi<{ categories: CategoryWithProducts[] }>(`/categories/mapped?householdId=${householdId}`),
 };
 
+// Generic API client for direct usage
+export const api = {
+    get: <T>(endpoint: string) => fetchApi<T>(endpoint),
+    post: <T>(endpoint: string, body: unknown) =>
+        fetchApi<T>(endpoint, { method: 'POST', body: JSON.stringify(body) }),
+    patch: <T>(endpoint: string, body: unknown) =>
+        fetchApi<T>(endpoint, { method: 'PATCH', body: JSON.stringify(body) }),
+    delete: <T>(endpoint: string) => fetchApi<T>(endpoint, { method: 'DELETE' }),
+};
+
 // Types
 export interface User {
     id: string;
     email: string;
     name?: string;
+    onboardingStep: number;
 }
 
 export interface Household {
@@ -453,4 +464,69 @@ export interface TodaySuggestion {
     matchPercentage: number;
     missingIngredientsCount: number;
     usesExpiringItems: boolean;
+}
+
+// Gamification API
+export const gamificationApi = {
+    getProfile: (userId: string) =>
+        fetchApi<GamificationProfile>(`/gamification/profile?userId=${userId}`),
+
+    trackActivity: (data: { userId: string; householdId: string; type: 'SCAN' | 'COOK' | 'RECIPE_CREATE' }) =>
+        fetchApi<{ pointsEarned: number; totalPoints: number; newBadges: string[] }>('/gamification/track', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+
+    getAIStatus: (userId: string) =>
+        fetchApi<{ unlocked: boolean; totalPoints: number; requiredPoints: number; remainingPoints: number }>(
+            `/gamification/ai-status?userId=${userId}`
+        ),
+
+    getLeaderboard: (householdId: string) =>
+        fetchApi<{ leaderboard: LeaderboardEntry[] }>(`/gamification/household/${householdId}/leaderboard`),
+
+    updateStreak: (data: { userId: string; householdId: string }) =>
+        fetchApi<{ currentStreak: number; longestStreak: number; newBadges: string[] }>('/gamification/update-streak', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }),
+};
+
+// Gamification Types
+export interface Badge {
+    id: string;
+    type: string;
+    name: string;
+    description: string;
+    icon: string;
+    points: number;
+    earnedAt: string;
+}
+
+export interface GamificationProfile {
+    totalPoints: number;
+    currentStreak: number;
+    longestStreak: number;
+    lastActiveDate?: string;
+    mealsSaved: number;
+    recipesCreated: number;
+    recipesCooked: number;
+    tutorialProductsAdded: number;
+    badges: Badge[];
+    aiUnlocked: boolean;
+    aiBadgeEarned: boolean;
+    nextUnlock: {
+        points: number;
+        feature: string;
+        remaining: number;
+    } | null;
+}
+
+export interface LeaderboardEntry {
+    rank: number;
+    userId: string;
+    userName: string;
+    totalPoints: number;
+    badges: number;
+    currentStreak: number;
 }

@@ -26,6 +26,7 @@ model Household {
   shoppingItems        ShoppingListItem[]
   recipes              Recipe[]
   ingredientCategories IngredientCategory[]
+  gamificationProfiles UserGamificationProfile[]
 }
 
 model User {
@@ -35,8 +36,12 @@ model User {
   name         String?
   createdAt    DateTime @default(now())
 
+  // Onboarding progress (0-4 steps)
+  onboardingStep Int @default(0)
+
   households   HouseholdUser[]
   transactions StockTransaction[]
+  gamificationProfile UserGamificationProfile?
 }
 
 model HouseholdUser {
@@ -154,6 +159,9 @@ model StockLot {
 
   bestBeforeDate DateTime?
   purchasedAt    DateTime  @default(now())
+
+  // Tutorial mode: true = placeholder product without real expiry
+  isTutorial Boolean @default(false)
 
   createdAt DateTime @default(now())
 
@@ -326,4 +334,45 @@ model ProductIngredientCategory {
   priority Int?
 
   @@id([productId, ingredientCategoryId])
+}
+
+// ============================================
+// GAMIFICATION & ONBOARDING
+// ============================================
+
+model UserGamificationProfile {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  householdId       String
+  
+  totalPoints       Int      @default(0)
+  currentStreak     Int      @default(0)
+  longestStreak     Int      @default(0)
+  lastActiveDate    DateTime?
+  
+  // Tutorial tracking
+  tutorialProductsAdded Int @default(0)
+  
+  // KPI
+  mealsSaved        Int      @default(0)
+  recipesCreated    Int      @default(0)
+  recipesCooked     Int      @default(0)
+  
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  household         Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  badges            Badge[]
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Badge {
+  id          String   @id @default(uuid())
+  userId      String
+  type        String   // 'WELCOME', 'FIRST_PRODUCTS', 'FIRST_SCAN', 'FIRST_COOK', 'STREAK_3', 'CHEF', 'AI_UNLOCKED'
+  earnedAt    DateTime @default(now())
+  
+  user        UserGamificationProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, type])
 }

@@ -7,6 +7,7 @@ import {
     getRecipes,
     getIngredientCategories
 } from '../services/recipeService';
+import { trackActivity } from '../services/gamificationService';
 
 export async function recipeRoutes(app: FastifyInstance) {
 
@@ -17,6 +18,7 @@ export async function recipeRoutes(app: FastifyInstance) {
                 name: z.string().min(2),
                 servings: z.number().int().positive().optional(),
                 householdId: z.string().uuid().optional(),
+                userId: z.string().uuid(),
                 ingredients: z.array(z.object({
                     productId: z.string().uuid().optional(),
                     ingredientCategoryId: z.string().uuid().optional(),
@@ -26,9 +28,10 @@ export async function recipeRoutes(app: FastifyInstance) {
             })
         }
     }, async (req) => {
-        const { name, householdId, servings, ingredients } = req.body as {
+        const { name, householdId, userId, servings, ingredients } = req.body as {
             name: string;
             householdId?: string;
+            userId: string;
             servings?: number;
             ingredients?: {
                 productId?: string;
@@ -37,7 +40,14 @@ export async function recipeRoutes(app: FastifyInstance) {
                 unitId: string;
             }[]
         };
-        return createRecipe(name, householdId, servings, ingredients);
+        const result = await createRecipe(name, householdId, servings, ingredients);
+
+        // Track gamification
+        if (userId && householdId) {
+            await trackActivity(userId, householdId, 'RECIPE_CREATE');
+        }
+
+        return result;
     });
 
     // LIST RECIPES

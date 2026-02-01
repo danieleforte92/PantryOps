@@ -87,7 +87,7 @@ export async function authRoutes(app: FastifyInstance) {
 
         return {
             message: 'Registration successful',
-            user: { id: result.user.id, email: result.user.email, name: result.user.name },
+            user: { id: result.user.id, email: result.user.email, name: result.user.name, onboardingStep: result.user.onboardingStep },
             household: { id: result.household.id, name: result.household.name },
         };
     });
@@ -125,7 +125,7 @@ export async function authRoutes(app: FastifyInstance) {
 
         return {
             message: 'Login successful',
-            user: { id: user.id, email: user.email, name: user.name },
+            user: { id: user.id, email: user.email, name: user.name, onboardingStep: user.onboardingStep },
             household: primaryHousehold ? { id: primaryHousehold.id, name: primaryHousehold.name } : null,
         };
     });

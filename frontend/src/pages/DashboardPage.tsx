@@ -4,6 +4,7 @@ import { useExpiringItems, useLowStock, useTodaySuggestions } from '../hooks/use
 import { RecipeFeaturedCard } from '../components/ui/RecipeFeaturedCard';
 import { FridgeWatchPanel } from '../components/ui/FridgeWatchPanel';
 import { LowStockPanel } from '../components/ui/LowStockPanel';
+import { GamificationWidget } from '../components/gamification';
 import RecipeDetailModal from '../components/modals/RecipeDetailModal';
 import { useState } from 'react';
 export default function DashboardPage() {
@@ -102,24 +103,8 @@ export default function DashboardPage() {
 
                     <LowStockPanel items={lowStockItems} />
 
-                    {/* Quick Stats */}
-                    <div className="bg-primary text-white rounded-3xl p-6 shadow-lg shadow-primary/20 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
-                        <div className="absolute bottom-0 left-0 -ml-8 -mb-8 w-32 h-32 bg-black/10 rounded-full blur-2xl"></div>
-
-                        <h3 className="font-bold text-lg mb-1 relative z-10">Idee alternative</h3>
-                        <p className="text-primary-100 text-sm mb-6 relative z-10">Hai salvato 4 pasti dallo spreco questa settimana!</p>
-
-                        <div className="flex justify-between items-end relative z-10">
-                            <div className="flex flex-col">
-                                <span className="text-3xl font-black">€24.50</span>
-                                <span className="text-xs text-white/80">Valore salvato</span>
-                            </div>
-                            <div className="h-10 w-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
-                                <span className="material-symbols-outlined">trending_up</span>
-                            </div>
-                        </div>
-                    </div>
+                    {/* Gamification Widget */}
+                    <GamificationWidget />
                 </div>
             </div>
 

@@ -1,17 +1,20 @@
 import { useState } from 'react';
-import { ChefHat, Sparkles, Clock, Users, Plus, Loader2, AlertCircle } from 'lucide-react';
+import { ChefHat, Sparkles, Clock, Users, Plus, Loader2, AlertCircle, Lock } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import GenerateRecipeModal from '../components/modals/GenerateRecipeModal';
 import RecipeDetailModal from '../components/modals/RecipeDetailModal';
 import CreateRecipeModal from '../components/modals/CreateRecipeModal';
+import { LockAIRecipeCard } from '../components/gamification';
+import { useAIStatus } from '../hooks/useGamification';
 import { useRecipes } from '../hooks/useApi';
 
 export default function RecipePage() {
     const [showGenerateModal, setShowGenerateModal] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
+    const { data: aiStatus } = useAIStatus();
 
     // Real API data instead of mock
     const { data: recipesData, isLoading, isError, refetch } = useRecipes();
@@ -36,6 +39,8 @@ export default function RecipePage() {
         refetch();
     };
 
+    const aiUnlocked = aiStatus?.unlocked ?? false;
+
     return (
         <div className="animate-fade-in pb-24 space-y-6">
             {/* Header */}
@@ -49,10 +54,21 @@ export default function RecipePage() {
                         <Plus size={18} className="mr-2" />
                         Nuova
                     </Button>
-                    <Button className="rounded-xl shadow-primary/25" onClick={() => setShowGenerateModal(true)}>
-                        <Sparkles size={18} className="mr-2" />
-                        Genera
-                    </Button>
+                    {aiUnlocked ? (
+                        <Button className="rounded-xl shadow-primary/25" onClick={() => setShowGenerateModal(true)}>
+                            <Sparkles size={18} className="mr-2" />
+                            Genera
+                        </Button>
+                    ) : (
+                        <Button
+                            className="rounded-xl shadow-primary/25 opacity-50 cursor-not-allowed"
+                            disabled
+                            title="Sblocca a 500 punti"
+                        >
+                            <Lock size={18} className="mr-2" />
+                            Genera
+                        </Button>
+                    )}
                 </div>
             </header>
 
@@ -158,16 +174,20 @@ export default function RecipePage() {
 
                     {/* Upsell Card - only show if there are recipes */}
                     {recipes.length > 0 && (
-                        <Card className="flex flex-col items-center justify-center p-8 border-dashed border-2 border-gray-200 dark:border-zinc-800 bg-transparent min-h-[300px] text-center space-y-4">
-                            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2">
-                                <Sparkles size={32} />
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Non sai cosa cucinare?</h3>
-                                <p className="text-gray-500 text-sm max-w-[200px] mx-auto mt-1">Chiedi all'AI di generare una ricetta con ciò che hai in frigo.</p>
-                            </div>
-                            <Button variant="secondary" className="mt-2" onClick={() => setShowGenerateModal(true)}>Prova ora</Button>
-                        </Card>
+                        aiUnlocked ? (
+                            <Card className="flex flex-col items-center justify-center p-8 border-dashed border-2 border-gray-200 dark:border-zinc-800 bg-transparent min-h-[300px] text-center space-y-4">
+                                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2">
+                                    <Sparkles size={32} />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Non sai cosa cucinare?</h3>
+                                    <p className="text-gray-500 text-sm max-w-[200px] mx-auto mt-1">Chiedi all'AI di generare una ricetta con ciò che hai in frigo.</p>
+                                </div>
+                                <Button variant="secondary" className="mt-2" onClick={() => setShowGenerateModal(true)}>Prova ora</Button>
+                            </Card>
+                        ) : (
+                            <LockAIRecipeCard />
+                        )
                     )}
                 </div>
             )}

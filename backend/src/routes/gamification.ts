@@ -71,6 +71,12 @@ const BADGE_DEFINITIONS = {
         points: 30,
         icon: '💰',
     },
+    ORGANIZED: {
+        name: 'Organizzato',
+        description: 'Hai organizzato tutta la tua dispensa',
+        points: 25,
+        icon: '📋',
+    },
 };
 
 // Schema for tracking activity
@@ -395,6 +401,142 @@ export async function gamificationRoutes(app: FastifyInstance) {
             currentStreak,
             longestStreak: Math.max(currentStreak, profile.longestStreak),
             newBadges,
+        };
+    });
+
+    // Get detailed streak status with notifications info
+    fastify.get('/streak-status', {
+        schema: {
+            querystring: z.object({
+                userId: z.string(),
+            }),
+        },
+    }, async (request) => {
+        const { userId } = request.query;
+
+        // Get user profile
+        const profile = await prisma.userProfile.findUnique({
+            where: { userId },
+        });
+
+        if (!profile) {
+            return {
+                currentStreak: 0,
+                longestStreak: 0,
+                lastActiveDate: null,
+                isActiveToday: false,
+                daysUntilStreakBreaks: 0,
+                pointsToNextMilestone: 3,
+            };
+        }
+
+        // Get today's date and yesterday's date
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        // Check if user was active today
+        const todayActivity = await prisma.dailyActivity.findFirst({
+            where: {
+                userId: profile.id,
+                date: {
+                    gte: today,
+                    lt: new Date(today.getTime() + 24 * 60 * 60 * 1000),
+                },
+            },
+        });
+
+        const isActiveToday = !!todayActivity;
+
+        // Calculate current streak
+        let currentStreak = 0;
+        if (isActiveToday) {
+            currentStreak = 1;
+            let checkDate = new Date(yesterday);
+            while (true) {
+                const activity = await prisma.dailyActivity.findFirst({
+                    where: {
+                        userId: profile.id,
+                        date: {
+                            gte: checkDate,
+                            lt: new Date(checkDate.getTime() + 24 * 60 * 60 * 1000),
+                        },
+                    },
+                });
+                if (activity) {
+                    currentStreak++;
+                    checkDate.setDate(checkDate.getDate() - 1);
+                } else {
+                    break;
+                }
+            }
+        } else {
+            // Check if streak is still alive (active yesterday)
+            const yesterdayActivity = await prisma.dailyActivity.findFirst({
+                where: {
+                    userId: profile.id,
+                    date: {
+                        gte: yesterday,
+                        lt: today,
+                    },
+                },
+            });
+            if (yesterdayActivity) {
+                // Streak is alive but not active today yet
+                currentStreak = 1;
+                let checkDate = new Date(yesterday);
+                checkDate.setDate(checkDate.getDate() - 1);
+                while (true) {
+                    const activity = await prisma.dailyActivity.findFirst({
+                        where: {
+                            userId: profile.id,
+                            date: {
+                                gte: checkDate,
+                                lt: new Date(checkDate.getTime() + 24 * 60 * 60 * 1000),
+                            },
+                        },
+                    });
+                    if (activity) {
+                        currentStreak++;
+                        checkDate.setDate(checkDate.getDate() - 1);
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Get last active date
+        const lastActivity = await prisma.dailyActivity.findFirst({
+            where: { userId: profile.id },
+            orderBy: { date: 'desc' },
+        });
+
+        const lastActiveDate = lastActivity ? lastActivity.date.toISOString() : null;
+
+        // Calculate days until streak breaks
+        const daysUntilStreakBreaks = isActiveToday ? 0 : 1;
+
+        // Calculate points to next milestone (3, 7, or 30 days)
+        let pointsToNextMilestone: number;
+        if (currentStreak < 3) {
+            pointsToNextMilestone = 3 - currentStreak;
+        } else if (currentStreak < 7) {
+            pointsToNextMilestone = 7 - currentStreak;
+        } else if (currentStreak < 30) {
+            pointsToNextMilestone = 30 - currentStreak;
+        } else {
+            pointsToNextMilestone = 0;
+        }
+
+        return {
+            currentStreak,
+            longestStreak: profile.longestStreak,
+            lastActiveDate,
+            isActiveToday,
+            daysUntilStreakBreaks,
+            pointsToNextMilestone,
         };
     });
 }

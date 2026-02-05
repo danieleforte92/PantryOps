@@ -1,4 +1,5 @@
 import { FastifyInstance } from 'fastify';
+import { ZodTypeProvider } from 'fastify-type-provider-zod';
 import z from 'zod';
 import prisma from '../lib/prisma';
 import { 
@@ -7,7 +8,9 @@ import {
 } from '../services/consumptionEngine';
 
 export async function suggestionRoutes(app: FastifyInstance) {
-    app.get('/today', async (request, reply) => {
+    const fastify = app.withTypeProvider<ZodTypeProvider>();
+    
+    fastify.get('/today', async (request, reply) => {
         const householdId = (await prisma.household.findFirst())?.id;
         if (!householdId) return reply.status(400).send({ error: 'No household found' });
 
@@ -46,7 +49,7 @@ export async function suggestionRoutes(app: FastifyInstance) {
                 let available = 0;
                 let hasExpiringLot = false;
 
-                if (ing.productId) {
+                if (ing.productId && ing.product) {
                     // Legacy: Product based
                     available = ing.product.currentStock?.quantity || 0;
 
@@ -105,7 +108,7 @@ export async function suggestionRoutes(app: FastifyInstance) {
     });
 
     // RECIPE PREVIEW (Decision Support)
-    app.get('/recipes/:id/preview', {
+    fastify.get('/recipes/:id/preview', {
         schema: {
             params: z.object({ id: z.string().uuid() }),
             querystring: z.object({ householdId: z.string().uuid() })

@@ -273,7 +273,7 @@ async function seedDemoRecipes(
     }
 
     // Validate all ingredients have valid categories
-    const validIngredients = [];
+    const validIngredients: { ingredientCategoryId: string; quantity: number; unitId: string }[] = [];
     for (const ing of recipe.ingredients) {
       const categoryId = categoryMap.get(ing.categoryName);
       if (!categoryId) {

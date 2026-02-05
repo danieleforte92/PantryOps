@@ -509,6 +509,9 @@ export const gamificationApi = {
             method: 'POST',
             body: JSON.stringify(data),
         }),
+
+    getStreakStatus: (userId: string) =>
+        fetchApi<StreakStatus>(`/gamification/streak-status?userId=${userId}`),
 };
 
 // Gamification Types
@@ -548,4 +551,13 @@ export interface LeaderboardEntry {
     totalPoints: number;
     badges: number;
     currentStreak: number;
+}
+
+export interface StreakStatus {
+    currentStreak: number;
+    longestStreak: number;
+    lastActiveDate: string | null;
+    isActiveToday: boolean;
+    daysUntilStreakBreaks: number;
+    pointsToNextMilestone: number;
 }

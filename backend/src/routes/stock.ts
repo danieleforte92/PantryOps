@@ -264,12 +264,12 @@ export async function stockRoutes(app: FastifyInstance) {
 
             if (ing.productId) {
                 // LEGACY: Product based - use FEFO within product
-                const available = ing.product.currentStock?.quantity || 0;
+                const available = ing.product?.currentStock?.quantity || 0;
 
                 if (available < required) {
                     return reply.status(400).send({
                         error: 'STOCK_INSUFFICIENT',
-                        product: ing.product.name,
+                        product: ing.product?.name,
                         required,
                         available
                     });
@@ -411,7 +411,6 @@ export async function stockRoutes(app: FastifyInstance) {
                 }
             }
 
-            await updateProjections(householdId);
         });
 
         // Track gamification for cooking

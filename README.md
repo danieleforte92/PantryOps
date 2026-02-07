@@ -2,7 +2,20 @@
 
 Inventory-aware cooking operations.
 
-PantryOps is an open-source, decision-driven home inventory system. It connects recipes, pantry stock, and expiration dates to help you cook with what you already have before it expires.
+
+## Index
+
+- [Core Concepts](#core-concepts)
+- [Golden Flow](#golden-flow)
+- [Tech Stack](#tech-stack)
+- [Quick Start (Development)](#quick-start-development)
+- [Domain Separation](#domain-separation)
+- [Key Features](#key-features)
+- [Screenshots and GIFs](#screenshots-and-gifs)
+- [Non-Goals](#non-goals)
+- [Project Status](#project-status)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
 
 ## Core Concepts
 
@@ -104,3 +117,4 @@ Contributions are welcome. Priorities:
 - Improve the golden flow
 - Reduce cognitive load
 - Keep decision logic explainable
+

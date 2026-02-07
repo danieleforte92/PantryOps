@@ -9,14 +9,21 @@ interface CreateRecipeIngredient {
     productId?: string;
 }
 
-export const createRecipe = async (name: string, householdId?: string, servings: number = 4, ingredients: CreateRecipeIngredient[] = []) => {
+export const createRecipe = async (
+    name: string,
+    householdId?: string,
+    servings: number = 4,
+    ingredients: CreateRecipeIngredient[] = [],
+    description?: string
+) => {
     return prisma.$transaction(async (tx) => {
         // 1. Create Recipe
         const recipe = await tx.recipe.create({
             data: {
                 name,
                 householdId,
-                servings
+                servings,
+                ...(description ? { description } : {})
             }
         });
 

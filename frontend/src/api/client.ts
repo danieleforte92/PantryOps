@@ -382,6 +382,7 @@ export interface ShoppingSuggestion {
 export interface Recipe {
     id: string;
     name: string;
+    description?: string;
     servings: number;
     source: 'MANUAL' | 'GENERATED';
     ingredients?: RecipeIngredient[];

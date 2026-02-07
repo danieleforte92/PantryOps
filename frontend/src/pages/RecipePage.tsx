@@ -16,6 +16,7 @@ export default function RecipePage() {
     const recipes = (recipesData ?? []).map((r: any) => ({
         id: r.id,
         title: r.name,
+        description: r.description,
         time: r.prepTime || '?',
         servings: r.servings || 4,
         imageUrl: r.imageUrl,

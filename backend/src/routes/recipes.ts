@@ -16,6 +16,7 @@ export async function recipeRoutes(app: FastifyInstance) {
         schema: {
             body: z.object({
                 name: z.string().min(2),
+                description: z.string().max(2000).optional(),
                 servings: z.number().int().positive().optional(),
                 householdId: z.string().uuid().optional(),
                 userId: z.string().uuid(),
@@ -28,8 +29,9 @@ export async function recipeRoutes(app: FastifyInstance) {
             })
         }
     }, async (req, reply) => {
-        const { name, householdId, userId, servings, ingredients } = req.body as {
+        const { name, description, householdId, userId, servings, ingredients } = req.body as {
             name: string;
+            description?: string;
             householdId?: string;
             userId: string;
             servings?: number;
@@ -47,7 +49,7 @@ export async function recipeRoutes(app: FastifyInstance) {
             };
         }
         try {
-            const result = await createRecipe(name, householdId, servings, ingredients);
+            const result = await createRecipe(name, householdId, servings, ingredients, description);
             // Track gamification
             if (userId && householdId) {
                 await trackActivity(userId, householdId, 'RECIPE_CREATE');

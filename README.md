@@ -10,7 +10,8 @@ Inventory-aware cooking operations.
 - [Quick Start (Development)](#quick-start-development)
 - [Domain Separation](#domain-separation)
 - [Key Features](#key-features)
-- [Screenshots and GIFs](#screenshots)
+- [OpenFoodFacts Attribution and License](#openfoodfacts-attribution-and-license)
+- [Screenshots](#screenshots)
 - [Non-Goals](#non-goals)
 - [Project Status](#project-status)
 - [Documentation](#documentation)
@@ -85,6 +86,21 @@ bun run dev
 - Stock-driven shopping suggestions
 - Barcode scanning via OpenFoodFacts
 
+## OpenFoodFacts Attribution and License
+
+PantryOps uses OpenFoodFacts data for barcode-based product lookup.
+
+- Terms of use and reuse: https://world.openfoodfacts.org/terms-of-use
+- API documentation: https://openfoodfacts.github.io/api-documentation/
+- API introduction and license notes: https://openfoodfacts.github.io/openfoodfacts-server/api/
+
+Key compliance points:
+
+- OpenFoodFacts database is licensed under ODbL (attribution + share-alike obligations).
+- A custom `User-Agent` is required for API calls.
+- Endpoint-level rate limits apply.
+- Register your app usage: https://world.openfoodfacts.org/api/v2/app/get
+
 ## Screenshots
 
 Current UI snapshots:
@@ -108,6 +124,7 @@ Active development. Core inventory and recipe flows are stable, with ongoing UX 
 
 - `pantryops_project_documentation_versioned.md`
 - `CHANGELOG.md`
+- `NOTICE.md`
 
 ## Contributing
 

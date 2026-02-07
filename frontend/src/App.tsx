@@ -29,7 +29,7 @@ export default function App() {
         // Update local storage to reflect completed onboarding
         if (user) {
             const updatedUser = { ...user, onboardingStep: 4 };
-            localStorage.setItem('bettergrocy_auth', JSON.stringify({
+            localStorage.setItem('PantryOps_auth', JSON.stringify({
                 user: updatedUser,
                 household
             }));

@@ -128,7 +128,7 @@ export function OnboardingWizard({ isOpen, onComplete }: OnboardingWizardProps) 
                 <ChefHat className="w-10 h-10 text-white" />
             </div>
             <h2 className="text-2xl font-bold text-slate-800 mb-3">
-                Benvenuto su BetterGrocy!
+                Benvenuto su PantryOps!
             </h2>
             <p className="text-slate-600 mb-8 max-w-sm mx-auto leading-relaxed">
                 Organizza la tua dispensa, riduci gli sprechi e scopri cosa cucinare con cio che hai gia a casa.
@@ -256,7 +256,7 @@ export function OnboardingWizard({ isOpen, onComplete }: OnboardingWizardProps) 
             </h2>
             <p className="text-slate-600 mb-6 max-w-sm mx-auto leading-relaxed">
                 Hai aggiunto <span className="font-semibold text-primary">{selectedProducts.size}</span> prodotti alla tua dispensa.
-                Ora puoi iniziare ad usare BetterGrocy!
+                Ora puoi iniziare ad usare PantryOps!
             </p>
 
             <Button size="lg" className="w-full" onClick={handleComplete}>

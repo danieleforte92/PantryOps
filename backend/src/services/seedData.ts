@@ -1,5 +1,5 @@
 /**
- * Static seed data for BetterGrocy
+ * Static seed data for PantryOps
  * 
  * Contains default units, ingredient categories, demo products, and demo recipes.
  * All data is designed to be idempotent - safe to re-run without duplicates.

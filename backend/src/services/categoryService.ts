@@ -1,5 +1,5 @@
 /**
- * Category Service for BetterGrocy
+ * Category Service for PantryOps
  * 
  * Handles all business logic for product-category mappings:
  * - CRUD operations for ProductIngredientCategory

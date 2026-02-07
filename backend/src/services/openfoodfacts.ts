@@ -33,7 +33,7 @@ export async function getProductByBarcode(code: string): Promise<OFFProduct | nu
             `https://world.openfoodfacts.org/api/v0/product/${code}.json`,
             {
                 headers: {
-                    'User-Agent': 'BetterGrocy/1.0 (https://github.com/bettergrocy)',
+                    'User-Agent': 'PantryOps/1.0 (https://github.com/PantryOps)',
                 },
             }
         );

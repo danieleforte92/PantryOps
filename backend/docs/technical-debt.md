@@ -1,4 +1,4 @@
-# Technical Debt - BetterGrocy
+# Technical Debt - PantryOps
 
 ## Category Resolution Logic - Performance & Future Enhancements
 

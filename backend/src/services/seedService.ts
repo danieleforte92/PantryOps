@@ -1,5 +1,5 @@
 /**
- * Seed Service for BetterGrocy
+ * Seed Service for PantryOps
  * 
  * Handles all database seeding operations:
  * - Global seed: Units (runs at backend startup)

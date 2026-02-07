@@ -73,6 +73,15 @@ bun run dev
 - Stock-driven shopping suggestions
 - Barcode scanning via OpenFoodFacts
 
+## Screenshots
+
+Current UI snapshots:
+
+![PantryOps screenshot 1](docs/media/pantryOps_01.png)
+![PantryOps screenshot 2](docs/media/pantryOps_02.png)
+![PantryOps screenshot 3](docs/media/pantryOps_03.png)
+![PantryOps screenshot 4](docs/media/pantryOps_04.png)
+
 ## Non-Goals
 
 - Generic recipe collection app
@@ -86,6 +95,7 @@ Active development. Core inventory and recipe flows are stable, with ongoing UX 
 ## Documentation
 
 - `pantryops_project_documentation_versioned.md`
+- `CHANGELOG.md`
 
 ## Contributing
 

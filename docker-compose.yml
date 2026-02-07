@@ -3,17 +3,17 @@ version: '3.8'
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: bettergrocy-db
+    container_name: PantryOps-db
     environment:
-      POSTGRES_USER: bettergrocy
-      POSTGRES_PASSWORD: bettergrocy
-      POSTGRES_DB: bettergrocy
+      POSTGRES_USER: PantryOps
+      POSTGRES_PASSWORD: PantryOps
+      POSTGRES_DB: PantryOps
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U bettergrocy"]
+      test: ["CMD-SHELL", "pg_isready -U PantryOps"]
       interval: 5s
       timeout: 5s
       retries: 5

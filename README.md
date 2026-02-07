@@ -1,4 +1,4 @@
-# BetterGrocy
+# PantryOps
 
 Modern home inventory management system - a simplified, user-friendly alternative to Grocy.
 

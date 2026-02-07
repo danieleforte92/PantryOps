@@ -10,7 +10,7 @@ export function MobileHeader() {
                 <Menu size={24} />
             </button>
 
-            <span className="font-bold text-lg text-primary">BetterGrocy</span>
+            <span className="font-bold text-lg text-primary">PantryOps</span>
 
             <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
                 {user?.name?.slice(0, 2).toUpperCase() || 'ME'}

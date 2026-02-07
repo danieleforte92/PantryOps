@@ -15,7 +15,7 @@ export default function ScanPage() {
     const [manualBarcode, setManualBarcode] = useState('');
     const [lastScannedItems, setLastScannedItems] = useState<ScanResult[]>(() => {
         try {
-            const stored = sessionStorage.getItem('bettergrocy_last_scanned');
+            const stored = sessionStorage.getItem('PantryOps_last_scanned');
             return stored ? JSON.parse(stored) : [];
         } catch {
             return [];
@@ -91,7 +91,7 @@ export default function ScanPage() {
             setLastScannedItems(prev => {
                 if (prev[0]?.barcode === code) return prev;
                 const next = [result, ...prev].slice(0, 5);
-                sessionStorage.setItem('bettergrocy_last_scanned', JSON.stringify(next));
+                sessionStorage.setItem('PantryOps_last_scanned', JSON.stringify(next));
                 return next;
             });
 
@@ -101,7 +101,7 @@ export default function ScanPage() {
                 const fallback: ScanResult = { status: 'UNKNOWN', barcode: code };
                 setLastScannedItems(prev => {
                     const next = [fallback, ...prev].slice(0, 5);
-                    sessionStorage.setItem('bettergrocy_last_scanned', JSON.stringify(next));
+                    sessionStorage.setItem('PantryOps_last_scanned', JSON.stringify(next));
                     return next;
                 });
                 navigate('/scan/add', { state: { scanResult: fallback, barcode: code } });

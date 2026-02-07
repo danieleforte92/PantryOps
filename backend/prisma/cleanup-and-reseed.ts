@@ -1,5 +1,5 @@
 /**
- * Cleanup and Reseed Script for BetterGrocy
+ * Cleanup and Reseed Script for PantryOps
  * 
  * Usage: npx ts-node prisma/cleanup-and-reseed.ts <household-id>
  * 

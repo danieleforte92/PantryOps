@@ -14,7 +14,7 @@ export function Sidebar() {
                         <span className="material-symbols-outlined text-3xl">local_dining</span>
                     </div>
                     <div className="flex flex-col">
-                        <h1 className="text-xl font-bold tracking-tight text-text-main dark:text-white">BetterGrocy</h1>
+                        <h1 className="text-xl font-bold tracking-tight text-text-main dark:text-white">PantryOps</h1>
                         <p className="text-text-muted text-xs font-medium">Minimize Waste</p>
                     </div>
                 </div>

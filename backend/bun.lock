@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "bettergrocy-backend",
+      "name": "PantryOps-backend",
       "dependencies": {
         "@fastify/cors": "^10.0.2",
         "@prisma/client": "^6.2.1",

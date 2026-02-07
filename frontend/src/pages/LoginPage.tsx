@@ -47,7 +47,7 @@ export default function LoginPage() {
                     <div className="mx-auto bg-primary/10 w-16 h-16 rounded-2xl flex items-center justify-center mb-4">
                         <Package size={32} className="text-primary" />
                     </div>
-                    <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-primary-dark bg-clip-text text-transparent">BetterGrocy</CardTitle>
+                    <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-primary-dark bg-clip-text text-transparent">PantryOps</CardTitle>
                     <p className="text-text-muted mt-2 font-medium">Modern home inventory management</p>
                 </CardHeader>
 

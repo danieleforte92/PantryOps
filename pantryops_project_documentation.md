@@ -1,6 +1,6 @@
-# Modern Pantry – Documentazione di Progetto
+# PantryOps – Documentazione di Progetto
 
-Questa documentazione rappresenta la **fonte di verità (single source of truth)** del progetto *Modern Pantry*.
+Questa documentazione rappresenta la **fonte di verità (single source of truth)** del progetto *PantryOps*.
 Serve come:
 - backup concettuale
 - guida architetturale
@@ -10,7 +10,7 @@ Serve come:
 
 ## 1. Visione del Prodotto
 
-**Modern Pantry** è un *personal home ERP* focalizzato su:
+**PantryOps** è un *personal home ERP* focalizzato su:
 - gestione scorte domestiche
 - supporto decisionale (cosa cucinare, cosa comprare)
 - riduzione sprechi

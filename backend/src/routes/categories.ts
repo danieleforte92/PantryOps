@@ -1,5 +1,5 @@
 /**
- * Categories Routes for BetterGrocy
+ * Categories Routes for PantryOps
  * 
  * RESTful API endpoints for managing product-category mappings:
  * - CRUD operations for ProductIngredientCategory

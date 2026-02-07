@@ -3,7 +3,7 @@ import { queriesApi, stockApi, productsApi, shoppingApi, recipesApi, suggestions
 
 // Get current user context (for MVP, stored in localStorage)
 export function useAuth() {
-    const stored = localStorage.getItem('bettergrocy_auth');
+    const stored = localStorage.getItem('PantryOps_auth');
     if (!stored) return { user: null, household: null };
 
     try {
@@ -14,11 +14,11 @@ export function useAuth() {
 }
 
 export function setAuth(user: any, household: any) {
-    localStorage.setItem('bettergrocy_auth', JSON.stringify({ user, household }));
+    localStorage.setItem('PantryOps_auth', JSON.stringify({ user, household }));
 }
 
 export function clearAuth() {
-    localStorage.removeItem('bettergrocy_auth');
+    localStorage.removeItem('PantryOps_auth');
 }
 
 // Current Stock Query

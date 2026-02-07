@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "bettergrocy-frontend",
+      "name": "PantryOps-frontend",
       "dependencies": {
         "@tailwindcss/postcss": "^4.1.18",
         "@tanstack/react-query": "^5.64.1",

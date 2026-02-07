@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { ShoppingCart, Plus, Trash2, RefreshCw, Check } from 'lucide-react';
+import { ShoppingCart, Plus, Trash2, Check } from 'lucide-react';
 import {
   useShoppingList,
   useAddShoppingItem,
   useRemoveShoppingItem,
   useToggleShoppingPurchased,
   useClearPurchasedItems,
-  useSyncShoppingSuggestions,
 } from '../hooks/useApi';
 import AddShoppingItemModal from '../components/modals/AddShoppingItemModal';
 import EditQuantityModal from '../components/modals/EditQuantityModal';
@@ -22,24 +21,14 @@ export default function ShoppingPage() {
   const togglePurchasedMutation = useToggleShoppingPurchased();
   const removeMutation = useRemoveShoppingItem();
   const clearPurchasedMutation = useClearPurchasedItems();
-  const syncSuggestionsMutation = useSyncShoppingSuggestions();
 
   const [activeTab, setActiveTab] = useState<Tab>('tobuy');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingItem, setEditingItem] = useState<ShoppingListItem | null>(null);
 
-  const suggestions = data?.suggestions ?? [];
   const allItems = data?.all ?? [];
 
   const addMutation = useAddShoppingItem();
-
-  const handleSyncSuggestions = async () => {
-    try {
-      await syncSuggestionsMutation.mutateAsync();
-    } catch (error) {
-      console.error('Failed to sync suggestions:', error);
-    }
-  };
 
   const handleTogglePurchased = async (item: ShoppingListItem) => {
     try {
@@ -67,17 +56,6 @@ export default function ShoppingPage() {
       await clearPurchasedMutation.mutateAsync();
     } catch (error) {
       console.error('Failed to clear purchased:', error);
-    }
-  };
-
-  const handleAddSuggestionFixed = async (suggestion: typeof suggestions[0]) => {
-    try {
-      await addMutation.mutateAsync({
-        productId: suggestion.product.id,
-        quantity: suggestion.purchaseQuantity,
-      });
-    } catch (error) {
-      console.error('Failed to add suggestion:', error);
     }
   };
 
@@ -122,20 +100,6 @@ export default function ShoppingPage() {
 
       {/* Actions */}
       <div className="flex gap-3">
-        <Button
-          variant="secondary"
-          className="flex-1"
-          onClick={handleSyncSuggestions}
-          disabled={syncSuggestionsMutation.isPending}
-        >
-          {syncSuggestionsMutation.isPending ? (
-            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
-          ) : (
-            <RefreshCw size={18} className="mr-2" />
-          )}
-          Sync Suggerimenti
-        </Button>
-
         {purchasedCount > 0 && (
           <Button
             variant="secondary"
@@ -175,53 +139,6 @@ export default function ShoppingPage() {
         </button>
       </div>
 
-      {/* Suggestions */}
-      {activeTab === 'tobuy' && suggestions.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Suggeriti</h2>
-          <div className="flex flex-col gap-3">
-            {suggestions.map((suggestion) => (
-              <Card key={suggestion.product.id} className="p-3 flex items-center gap-3">
-                {suggestion.product.imageUrl ? (
-                  <img
-                    src={suggestion.product.imageUrl}
-                    alt={suggestion.product.name}
-                    className="w-12 h-12 rounded-lg object-cover bg-gray-100"
-                  />
-                ) : (
-                  <div className="w-12 h-12 rounded-lg bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-gray-400">
-                    <ShoppingCart size={20} />
-                  </div>
-                )}
-
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-gray-900 dark:text-white truncate">{suggestion.product.name}</p>
-                  <div className="flex items-center gap-2">
-                    <p className="text-xs text-text-muted">
-                      Stock: {suggestion.currentStock} • Min: {suggestion.minStock}
-                    </p>
-                    {/* Tiny badges for suggestions */}
-                    <div className="flex gap-1 items-center">
-                      {/* Note: suggestions currently don't have health data in the query, but we add placeholder for when they do */}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="text-right mr-2">
-                  <p className="font-bold text-lg text-primary">
-                    {suggestion.purchaseQuantity} <span className="text-xs font-normal text-text-muted">{suggestion.purchaseUnit}</span>
-                  </p>
-                </div>
-
-                <Button size="icon" className="h-9 w-9 rounded-full" onClick={() => handleAddSuggestionFixed(suggestion)}>
-                  <Plus size={18} />
-                </Button>
-              </Card>
-            ))}
-          </div>
-        </section>
-      )}
-
       {/* Items List */}
       {filteredItems.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center text-text-muted">
@@ -231,7 +148,7 @@ export default function ShoppingPage() {
           </h3>
           <p className="text-sm">
             {activeTab === 'tobuy'
-              ? 'Aggiungi prodotti o sincronizza i suggerimenti'
+              ? 'Aggiungi prodotti alla lista'
               : 'Aggiungi il tuo primo item'}
           </p>
         </div>
@@ -277,26 +194,6 @@ export default function ShoppingPage() {
                       Suggerito
                     </Badge>
                   )}
-                  {/* Health Badges */}
-                  <div className="flex gap-1 items-center scale-[0.85] origin-left">
-                    {item.product.nutriscore && (
-                      <div className={`text-[8px] font-black px-1 py-0.5 rounded ${item.product.nutriscore === 'A' ? 'bg-green-600' :
-                        item.product.nutriscore === 'B' ? 'bg-green-500' :
-                          item.product.nutriscore === 'C' ? 'bg-yellow-500' :
-                            item.product.nutriscore === 'D' ? 'bg-orange-500' : 'bg-red-500'
-                        } text-white uppercase`}>
-                        {item.product.nutriscore}
-                      </div>
-                    )}
-                    {item.product.novaGroup && (
-                      <div className={`text-[8px] font-black px-1 py-0.5 rounded ${item.product.novaGroup === 1 ? 'bg-green-600' :
-                        item.product.novaGroup === 2 ? 'bg-yellow-500' :
-                          item.product.novaGroup === 3 ? 'bg-orange-500' : 'bg-red-500'
-                        } text-white`}>
-                        N{item.product.novaGroup}
-                      </div>
-                    )}
-                  </div>
                 </div>
               </div>
 

@@ -1,4 +1,4 @@
-import { useCurrentStock, usePurchase } from '../hooks/useApi';
+import { useCurrentStock, usePurchase, useExpiringItems, useLowStock } from '../hooks/useApi';
 import { StockItem } from '../api/client';
 import { Package, Minus, Plus, Search } from 'lucide-react';
 import { useState, useMemo } from 'react';
@@ -10,6 +10,8 @@ import CookConfirmationModal, { CookItem } from '../components/modals/CookConfir
 
 export default function StockPage() {
     const { data, isLoading } = useCurrentStock();
+    const { data: expiringData } = useExpiringItems();
+    const { data: lowStockData } = useLowStock();
     const purchaseMutation = usePurchase();
 
     // Track loading states locally to avoid UI jitter using mutation.isPending which is global
@@ -52,14 +54,35 @@ export default function StockPage() {
         }
     };
 
-    const getStockStatus = (quantity: number, minStock?: number, expiryDate?: string): StockStatus => {
-        if (expiryDate) {
-            const daysToExpiry = differenceInDays(parseISO(expiryDate), new Date());
-            if (daysToExpiry < 0) return 'expired';
-            if (daysToExpiry <= 3) return 'expiring';
-        }
-        // Simple low stock logic, can be enhanced
-        if (minStock && quantity <= minStock) return 'low';
+    const expiringStatusByProduct = useMemo(() => {
+        const statusMap = new Map<string, StockStatus>();
+        const allExpiring = [
+            ...(expiringData?.expired ?? []),
+            ...(expiringData?.today ?? []),
+            ...(expiringData?.thisWeek ?? []),
+        ];
+
+        allExpiring.forEach((item) => {
+            const daysToExpiry = differenceInDays(parseISO(item.bestBeforeDate), new Date());
+            const nextStatus: StockStatus = daysToExpiry < 0 ? 'expired' : daysToExpiry <= 3 ? 'expiring' : 'good';
+
+            const current = statusMap.get(item.product.id);
+            if (!current || current === 'good' || (current === 'expiring' && nextStatus === 'expired')) {
+                statusMap.set(item.product.id, nextStatus);
+            }
+        });
+
+        return statusMap;
+    }, [expiringData]);
+
+    const lowStockSet = useMemo(() => {
+        return new Set((lowStockData?.lowStock ?? []).map((item) => item.product.id));
+    }, [lowStockData]);
+
+    const getStockStatus = (productId: string): StockStatus => {
+        const expiringStatus = expiringStatusByProduct.get(productId);
+        if (expiringStatus && expiringStatus !== 'good') return expiringStatus;
+        if (lowStockSet.has(productId)) return 'low';
         return 'good';
     };
 
@@ -101,8 +124,7 @@ export default function StockPage() {
             ) : (
                 <div className="space-y-4 px-1">
                     {stockItems.map((item) => {
-                        // Mocking expiry/minStock for now as they might be on item.product or not fully returned
-                        const status = getStockStatus(item.quantity, 2); // Mock minStock=2
+                        const status = getStockStatus(item.productId);
 
                         return (
                             <Card
@@ -132,26 +154,7 @@ export default function StockPage() {
                                             {item.quantity.toFixed(item.product.stockUnit.abbreviation === 'pz' ? 0 : 1)} {item.product.stockUnit.abbreviation}
                                         </p>
 
-                                        {/* Inline mini health badges */}
-                                        <div className="flex gap-1.5 items-center">
-                                            {item.product.nutriscore && (
-                                                <div className={`text-[9px] font-black px-1.5 py-0.5 rounded ${item.product.nutriscore === 'A' ? 'bg-green-600' :
-                                                    item.product.nutriscore === 'B' ? 'bg-green-500' :
-                                                        item.product.nutriscore === 'C' ? 'bg-yellow-500' :
-                                                            item.product.nutriscore === 'D' ? 'bg-orange-500' : 'bg-red-500'
-                                                    } text-white uppercase`}>
-                                                    {item.product.nutriscore}
-                                                </div>
-                                            )}
-                                            {item.product.novaGroup && (
-                                                <div className={`text-[9px] font-black px-1.5 py-0.5 rounded ${item.product.novaGroup === 1 ? 'bg-green-600' :
-                                                    item.product.novaGroup === 2 ? 'bg-yellow-500' :
-                                                        item.product.novaGroup === 3 ? 'bg-orange-500' : 'bg-red-500'
-                                                    } text-white`}>
-                                                    N{item.product.novaGroup}
-                                                </div>
-                                            )}
-                                        </div>
+                                        {/* Health badges removed in minimal flow */}
                                     </div>
                                 </div>
 

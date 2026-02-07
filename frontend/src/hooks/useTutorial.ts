@@ -28,7 +28,6 @@ export function useConvertTutorial() {
             queryClient.invalidateQueries({ queryKey: ['tutorial-products'] });
             queryClient.invalidateQueries({ queryKey: ['current-stock'] });
             queryClient.invalidateQueries({ queryKey: ['expiring'] });
-            queryClient.invalidateQueries({ queryKey: ['gamification-profile'] });
         },
     });
 }

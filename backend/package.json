@@ -11,6 +11,7 @@
     "db:seed": "bun run prisma/seed.ts",
     "db:studio": "bunx prisma studio",
     "db:cleanup": "bun run prisma/cleanup-and-reseed.ts",
+    "db:migrate:recipe-ingredients": "bun run src/scripts/migrateRecipeIngredients.ts",
     "test": "bun test"
   },
   "dependencies": {

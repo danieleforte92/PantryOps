@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import prisma from '../lib/prisma';
-import { updateProjections } from '../services/projections';
+import { rebuildProjections, updateProjections } from '../services/projections';
 import { resolveCategoryStock } from '../services/categoryService';
 import { computeConsumption, validateConsumptionPlan } from '../services/consumptionEngine';
 import { trackActivity } from '../services/gamificationService';
@@ -29,6 +29,10 @@ const openSchema = z.object({
     householdId: z.string().uuid(),
     userId: z.string().uuid(),
     stockLotId: z.string().uuid(),
+});
+
+const rebuildSchema = z.object({
+    householdId: z.string().uuid(),
 });
 
 export async function stockRoutes(app: FastifyInstance) {
@@ -251,13 +255,14 @@ export async function stockRoutes(app: FastifyInstance) {
         const actualServings = (recipe as any).servings || 1;
         const factor = servings ? (servings / actualServings) : 1;
 
-        // Build allocation plan
+        // Build allocation plan (legacy + user selections)
         let allocationPlan: Array<{
             productId: string;
             categoryId?: string;
             required: number;
             lots: Array<{ lotId: string; amount: number }>;
         }> = [];
+        const autoCategoryIngredients: Array<{ categoryId: string; required: number }> = [];
 
         for (const ing of recipe.ingredients) {
             const required = ing.quantity * factor;
@@ -352,15 +357,14 @@ export async function stockRoutes(app: FastifyInstance) {
                     }
 
                 } else {
-                    // AUTO-FEFO: No user selection, use Consumption Engine
+                    // AUTO-FEFO: No user selection, validate via Consumption Engine
                     const consumptionPlan = await computeConsumption(
                         ing.ingredientCategoryId,
                         required,
                         householdId,
-                        'preview' // Just compute plan first for validation
+                        'preview'
                     );
 
-                    // Validate plan
                     const validation = validateConsumptionPlan(consumptionPlan, required);
                     if (!validation.valid) {
                         return reply.status(400).send({
@@ -371,47 +375,62 @@ export async function stockRoutes(app: FastifyInstance) {
                         });
                     }
 
-                    // Convert consumption plan to allocation plan
-                    for (const productAlloc of consumptionPlan.productAllocations) {
-                        allocationPlan.push({
-                            productId: productAlloc.productId,
-                            categoryId: ing.ingredientCategoryId,
-                            required: productAlloc.quantity,
-                            lots: productAlloc.lots.map(l => ({ lotId: l.lotId, amount: l.amount }))
-                        });
-                    }
+                    autoCategoryIngredients.push({
+                        categoryId: ing.ingredientCategoryId,
+                        required
+                    });
                 }
             }
         }
 
-        // Execute consumption in transaction
-        await prisma.$transaction(async (tx) => {
-            for (const alloc of allocationPlan) {
-                for (const lotAlloc of alloc.lots) {
-                    await tx.stockTransaction.create({
-                        data: {
-                            householdId,
-                            productId: alloc.productId,
-                            stockLotId: lotAlloc.lotId,
-                            type: 'CONSUME',
-                            amount: -lotAlloc.amount,
-                            userId
-                        }
-                    });
-
-                    await tx.currentStock.update({
-                        where: { householdId_productId: { householdId, productId: alloc.productId } },
-                        data: { quantity: { decrement: lotAlloc.amount } }
-                    });
-
-                    await tx.stockLotBalance.update({
-                        where: { stockLotId: lotAlloc.lotId },
-                        data: { remainingQuantity: { decrement: lotAlloc.amount } }
-                    });
-                }
+        // Execute auto category consumption via Consumption Engine (commit mode)
+        for (const auto of autoCategoryIngredients) {
+            const plan = await computeConsumption(
+                auto.categoryId,
+                auto.required,
+                householdId,
+                'commit',
+                userId
+            );
+            if (!plan.canFulfill) {
+                return reply.status(400).send({
+                    error: 'STOCK_INSUFFICIENT',
+                    category: plan.categoryName,
+                    required: auto.required,
+                    available: plan.totalAvailable
+                });
             }
+        }
 
-        });
+        // Execute legacy + user selection consumption in transaction
+        if (allocationPlan.length > 0) {
+            await prisma.$transaction(async (tx) => {
+                for (const alloc of allocationPlan) {
+                    for (const lotAlloc of alloc.lots) {
+                        await tx.stockTransaction.create({
+                            data: {
+                                householdId,
+                                productId: alloc.productId,
+                                stockLotId: lotAlloc.lotId,
+                                type: 'CONSUME',
+                                amount: -lotAlloc.amount,
+                                userId
+                            }
+                        });
+
+                        await tx.currentStock.update({
+                            where: { householdId_productId: { householdId, productId: alloc.productId } },
+                            data: { quantity: { decrement: lotAlloc.amount } }
+                        });
+
+                        await tx.stockLotBalance.update({
+                            where: { stockLotId: lotAlloc.lotId },
+                            data: { remainingQuantity: { decrement: lotAlloc.amount } }
+                        });
+                    }
+                }
+            });
+        }
 
         // Track gamification for cooking
         const gamificationResult = await trackActivity(userId, householdId, 'COOK', {
@@ -541,5 +560,16 @@ export async function stockRoutes(app: FastifyInstance) {
             bonusPoints,
             newBadge,
         };
+    });
+
+    // MAINTENANCE: Rebuild projections for a household
+    fastify.post('/rebuild-projections', {
+        schema: {
+            body: rebuildSchema,
+        },
+    }, async (request) => {
+        const { householdId } = request.body;
+        const result = await rebuildProjections(householdId);
+        return { rebuilt: result.rebuilt };
     });
 }

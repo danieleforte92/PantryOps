@@ -3,10 +3,10 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 interface CreateRecipeIngredient {
-    productId?: string;
     ingredientCategoryId?: string;
     quantity: number;
-    unitId: string;
+    unitId?: string;
+    productId?: string;
 }
 
 export const createRecipe = async (name: string, householdId?: string, servings: number = 4, ingredients: CreateRecipeIngredient[] = []) => {
@@ -20,45 +20,32 @@ export const createRecipe = async (name: string, householdId?: string, servings:
             }
         });
 
-        // 2. Create Ingredients
+        // 2. Create Ingredients (category-based only)
         if (ingredients && ingredients.length > 0) {
             for (const ing of ingredients) {
-                // Determine unit (logic similar to addIngredientToRecipe but simplified for creation)
-                // Actually, the FE sends unitId but for categories we should use baseUnitId if possible or validate
-                // For simplicity, we trust the FE for unitId or verify it matches category base unit
-
-                // We need to fetch proper unit if not provided, but FE sends it currently.
-                // However, our dual-mode logic in addIngredientToRecipe handles unit automatic lookups.
-                // Let's reuse addIngredientToRecipe logic if possible, or replicate it carefully inside transaction.
-
-                // Replicating basic logic for transaction safety:
-                let unitId = ing.unitId;
-
-                if (ing.ingredientCategoryId) {
-                    const cat = await tx.ingredientCategory.findUnique({ where: { id: ing.ingredientCategoryId } });
-                    if (cat) unitId = cat.baseUnitId; // Enforce category base unit
-
-                    await tx.recipeIngredient.create({
-                        data: {
-                            recipeId: recipe.id,
-                            ingredientCategoryId: ing.ingredientCategoryId,
-                            quantity: ing.quantity,
-                            unitId
-                        }
-                    });
-                } else if (ing.productId) {
-                    const prod = await tx.product.findUnique({ where: { id: ing.productId } });
-                    if (prod) unitId = prod.stockUnitId; // Enforce product stock unit
-
-                    await tx.recipeIngredient.create({
-                        data: {
-                            recipeId: recipe.id,
-                            productId: ing.productId,
-                            quantity: ing.quantity,
-                            unitId
-                        }
-                    });
+                if (ing.productId) {
+                    throw { code: 'LEGACY_PRODUCT_NOT_ALLOWED', message: 'Non usare productId per nuove ricette' };
                 }
+
+                if (!ing.ingredientCategoryId) {
+                    throw { code: 'MISSING_IDENTIFIER', message: 'Devi specificare ingredientCategoryId' };
+                }
+
+                const cat = await tx.ingredientCategory.findUnique({ where: { id: ing.ingredientCategoryId } });
+                if (!cat) {
+                    throw { code: 'CATEGORY_NOT_FOUND', message: 'Categoria ingrediente non trovata' };
+                }
+
+                const unitId = cat.baseUnitId; // Enforce category base unit
+
+                await tx.recipeIngredient.create({
+                    data: {
+                        recipeId: recipe.id,
+                        ingredientCategoryId: ing.ingredientCategoryId,
+                        quantity: ing.quantity,
+                        unitId
+                    }
+                });
             }
         }
 
@@ -124,9 +111,13 @@ export const addIngredientToRecipe = async (
 ) => {
     const { productId, ingredientCategoryId } = options;
 
+    if (productId) {
+        throw { code: 'LEGACY_PRODUCT_NOT_ALLOWED', message: 'Non usare productId per nuove ricette' };
+    }
+
     // Validazione: almeno uno richiesto
-    if (!productId && !ingredientCategoryId) {
-        throw { code: 'MISSING_IDENTIFIER', message: 'Devi specificare productId o ingredientCategoryId' };
+    if (!ingredientCategoryId) {
+        throw { code: 'MISSING_IDENTIFIER', message: 'Devi specificare ingredientCategoryId' };
     }
 
     if (quantity <= 0) {
@@ -144,80 +135,39 @@ export const addIngredientToRecipe = async (
 
     let unitId: string;
 
-    // DUAL MODE LOGIC
-    if (ingredientCategoryId) {
-        // === NEW MODE: Categoria ===
-        const category = await prisma.ingredientCategory.findUnique({
-            where: { id: ingredientCategoryId }
-        });
+    // === NEW MODE: Categoria ===
+    const category = await prisma.ingredientCategory.findUnique({
+        where: { id: ingredientCategoryId }
+    });
 
-        if (!category) {
-            throw { code: 'CATEGORY_NOT_FOUND', message: 'Categoria ingrediente non trovata' };
-        }
+    if (!category) {
+        throw { code: 'CATEGORY_NOT_FOUND', message: 'Categoria ingrediente non trovata' };
+    }
 
-        unitId = category.baseUnitId;
+    unitId = category.baseUnitId;
 
-        // Check idempotency per category
-        const existing = await prisma.recipeIngredient.findFirst({
-            where: { recipeId, ingredientCategoryId }
-        });
+    // Check idempotency per category
+    const existing = await prisma.recipeIngredient.findFirst({
+        where: { recipeId, ingredientCategoryId }
+    });
 
-        if (existing) {
-            return prisma.recipeIngredient.update({
-                where: { id: existing.id },
-                data: { quantity: existing.quantity + quantity },
-                include: { ingredientCategory: true, unit: true }
-            });
-        }
-
-        return prisma.recipeIngredient.create({
-            data: {
-                recipeId,
-                ingredientCategoryId,
-                quantity,
-                unitId
-            },
+    if (existing) {
+        return prisma.recipeIngredient.update({
+            where: { id: existing.id },
+            data: { quantity: existing.quantity + quantity },
             include: { ingredientCategory: true, unit: true }
-        });
-
-    } else if (productId) {
-        // === LEGACY MODE: Prodotto ===
-        const product = await prisma.product.findUnique({
-            where: { id: productId }
-        });
-
-        if (!product) {
-            throw { code: 'PRODUCT_NOT_FOUND', message: 'Prodotto non trovato' };
-        }
-
-        unitId = product.stockUnitId;
-
-        // Check idempotency per product
-        const existing = await prisma.recipeIngredient.findFirst({
-            where: { recipeId, productId }
-        });
-
-        if (existing) {
-            return prisma.recipeIngredient.update({
-                where: { id: existing.id },
-                data: { quantity: existing.quantity + quantity },
-                include: { product: true, unit: true }
-            });
-        }
-
-        return prisma.recipeIngredient.create({
-            data: {
-                recipeId,
-                productId,
-                quantity,
-                unitId
-            },
-            include: { product: true, unit: true }
         });
     }
 
-    // Non dovrebbe mai arrivare qui
-    throw { code: 'INTERNAL_ERROR', message: 'Errore interno' };
+    return prisma.recipeIngredient.create({
+        data: {
+            recipeId,
+            ingredientCategoryId,
+            quantity,
+            unitId
+        },
+        include: { ingredientCategory: true, unit: true }
+    });
 };
 
 export const getRecipeById = async (id: string) => {

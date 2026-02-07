@@ -20,34 +20,52 @@ export async function recipeRoutes(app: FastifyInstance) {
                 householdId: z.string().uuid().optional(),
                 userId: z.string().uuid(),
                 ingredients: z.array(z.object({
-                    productId: z.string().uuid().optional(),
-                    ingredientCategoryId: z.string().uuid().optional(),
+                    ingredientCategoryId: z.string().uuid(),
                     quantity: z.number().positive(),
-                    unitId: z.string().uuid()
+                    unitId: z.string().uuid().optional(),
+                    productId: z.string().uuid().optional()
                 })).optional()
             })
         }
-    }, async (req) => {
+    }, async (req, reply) => {
         const { name, householdId, userId, servings, ingredients } = req.body as {
             name: string;
             householdId?: string;
             userId: string;
             servings?: number;
             ingredients?: {
-                productId?: string;
                 ingredientCategoryId?: string;
                 quantity: number;
-                unitId: string;
+                unitId?: string;
+                productId?: string;
             }[]
         };
-        const result = await createRecipe(name, householdId, servings, ingredients);
-
-        // Track gamification
-        if (userId && householdId) {
-            await trackActivity(userId, householdId, 'RECIPE_CREATE');
+        if (ingredients?.some((i) => i.productId)) {
+            return {
+                error: 'LEGACY_PRODUCT_NOT_ALLOWED',
+                message: 'Non usare productId per nuove ricette; usa ingredientCategoryId'
+            };
         }
+        try {
+            const result = await createRecipe(name, householdId, servings, ingredients);
+            // Track gamification
+            if (userId && householdId) {
+                await trackActivity(userId, householdId, 'RECIPE_CREATE');
+            }
 
-        return result;
+            return result;
+        } catch (error: any) {
+            if (error.code === 'CATEGORY_NOT_FOUND') {
+                return reply.status(404).send({ error: error.code, message: error.message });
+            }
+            if (error.code === 'MISSING_IDENTIFIER') {
+                return reply.status(400).send({ error: error.code, message: error.message });
+            }
+            if (error.code === 'LEGACY_PRODUCT_NOT_ALLOWED') {
+                return reply.status(400).send({ error: error.code, message: error.message });
+            }
+            return reply.status(500).send({ error: 'INTERNAL_ERROR', message: 'Errore interno del server' });
+        }
     });
 
     // LIST RECIPES
@@ -62,17 +80,16 @@ export async function recipeRoutes(app: FastifyInstance) {
         return getRecipes(householdId);
     });
 
-    // ADD INGREDIENT (DUAL MODE: category OR product)
+    // ADD INGREDIENT (category only)
     app.post('/:id/ingredients', {
         schema: {
             params: z.object({
                 id: z.string().uuid()
             }),
             body: z.object({
-                // Almeno uno dei due è richiesto (validato a livello service)
-                productId: z.string().uuid().optional(),
-                ingredientCategoryId: z.string().uuid().optional(),
-                quantity: z.number().positive()
+                ingredientCategoryId: z.string().uuid(),
+                quantity: z.number().positive(),
+                productId: z.string().uuid().optional()
             })
         }
     }, async (req, reply) => {
@@ -83,9 +100,15 @@ export async function recipeRoutes(app: FastifyInstance) {
             quantity: number;
         };
 
+        if (productId) {
+            return reply.status(400).send({
+                error: 'LEGACY_PRODUCT_NOT_ALLOWED',
+                message: 'Non usare productId per nuove ricette; usa ingredientCategoryId'
+            });
+        }
+
         try {
             const result = await addIngredientToRecipe(id, quantity, {
-                productId,
                 ingredientCategoryId
             });
             return result;
@@ -104,6 +127,9 @@ export async function recipeRoutes(app: FastifyInstance) {
                 return reply.status(400).send({ error: error.code, message: error.message });
             }
             if (error.code === 'MISSING_IDENTIFIER') {
+                return reply.status(400).send({ error: error.code, message: error.message });
+            }
+            if (error.code === 'LEGACY_PRODUCT_NOT_ALLOWED') {
                 return reply.status(400).send({ error: error.code, message: error.message });
             }
             // Errore generico

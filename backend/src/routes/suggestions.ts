@@ -49,18 +49,8 @@ export async function suggestionRoutes(app: FastifyInstance) {
                 let available = 0;
                 let hasExpiringLot = false;
 
-                if (ing.productId && ing.product) {
-                    // Legacy: Product based
-                    available = ing.product.currentStock?.quantity || 0;
-
-                    // Check for expiring lots
-                    if (ing.product.stockLots) {
-                        hasExpiringLot = ing.product.stockLots.some(lot =>
-                            lot.bestBeforeDate && lot.bestBeforeDate <= inThreeDays
-                        );
-                    }
-                } else if (ing.ingredientCategoryId) {
-                    // NEW: Category based - Use Consumption Engine for consistent logic
+                if (ing.ingredientCategoryId) {
+                    // Category based - Use Consumption Engine for consistent logic
                     const consumptionPlan = await computeConsumption(
                         ing.ingredientCategoryId,
                         ing.quantity,
@@ -137,6 +127,15 @@ export async function suggestionRoutes(app: FastifyInstance) {
 
         if (!recipe) return reply.status(404).send({ error: 'Recipe not found' });
 
+        const legacyIngredients = recipe.ingredients.filter((ing: any) => !ing.ingredientCategoryId);
+        if (legacyIngredients.length > 0) {
+            return reply.status(400).send({
+                error: 'LEGACY_RECIPE_INGREDIENT',
+                message: 'Ricetta legacy: esegui la migrazione per usare ingredientCategoryId',
+                count: legacyIngredients.length
+            });
+        }
+
         const ingredients = await Promise.all(recipe.ingredients.map(async (ing: any) => {
             const required = ing.quantity;
             let available = 0;
@@ -144,35 +143,28 @@ export async function suggestionRoutes(app: FastifyInstance) {
             let id = ing.id;
             let suggestedProducts;
 
-            if (ing.productId) {
-                // Legacy: Product based
-                available = ing.product.currentStock?.quantity || 0;
-                name = ing.product.name;
-                id = ing.productId;
-            } else if (ing.ingredientCategoryId) {
-                // NEW: Category based - Use Consumption Engine for consistent logic
-                const consumptionPlan = await computeConsumption(
-                    ing.ingredientCategoryId,
-                    ing.quantity,
-                    householdId,
-                    'preview'
-                );
-                
-                available = consumptionPlan.totalAvailable;
-                name = ing.ingredientCategory.name;
-                id = ing.ingredientCategoryId;
+            // Category based - Use Consumption Engine for consistent logic
+            const consumptionPlan = await computeConsumption(
+                ing.ingredientCategoryId,
+                ing.quantity,
+                householdId,
+                'preview'
+            );
+            
+            available = consumptionPlan.totalAvailable;
+            name = ing.ingredientCategory.name;
+            id = ing.ingredientCategoryId;
 
-                // Convert consumption plan to suggested products format
-                suggestedProducts = consumptionPlan.productAllocations.map(alloc => ({
-                    productId: alloc.productId,
-                    productName: alloc.productName,
-                    suggestedQuantity: alloc.quantity,
-                    availableQuantity: alloc.quantity, // Already capped by available
-                    priority: 1, // Default, could be fetched if needed
-                    stockUnitName: ing.unit.abbreviation,
-                    productImage: null // Could be fetched if needed
-                }));
-            }
+            // Convert consumption plan to suggested products format
+            suggestedProducts = consumptionPlan.productAllocations.map(alloc => ({
+                productId: alloc.productId,
+                productName: alloc.productName,
+                suggestedQuantity: alloc.quantity,
+                availableQuantity: alloc.quantity, // Already capped by available
+                priority: 1, // Default, could be fetched if needed
+                stockUnitName: ing.unit.abbreviation,
+                productImage: null // Could be fetched if needed
+            }));
 
             const missing = Math.max(0, required - available);
 

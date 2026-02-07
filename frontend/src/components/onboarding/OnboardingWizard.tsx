@@ -14,14 +14,14 @@ interface TutorialProduct {
 }
 
 const PRODUCT_EMOJIS: Record<string, string> = {
-    'Pasta': '🍝',
-    'Pomodori pelati': '🥫',
-    'Olio extravergine': '🫒',
-    'Pane': '🍞',
-    'Latte': '🥛',
-    'Uova': '🥚',
-    'Formaggio': '🧀',
-    'Pollo': '🍗',
+    'Pasta': 'ðŸ',
+    'Pomodori pelati': 'ðŸ¥«',
+    'Olio extravergine': 'ðŸ«’',
+    'Pane': 'ðŸž',
+    'Latte': 'ðŸ¥›',
+    'Uova': 'ðŸ¥š',
+    'Formaggio': 'ðŸ§€',
+    'Pollo': 'ðŸ—',
 };
 
 interface OnboardingWizardProps {
@@ -48,7 +48,7 @@ export function OnboardingWizard({ isOpen, onComplete }: OnboardingWizardProps) 
             const response = await api.get<{ products: TutorialProduct[] }>('/onboarding/tutorial-products');
             const productsWithEmoji = response.products.map((p: TutorialProduct) => ({
                 ...p,
-                emoji: PRODUCT_EMOJIS[p.name] || '📦',
+                emoji: PRODUCT_EMOJIS[p.name] || 'ðŸ“¦',
             }));
             setProducts(productsWithEmoji);
         } catch (err) {
@@ -131,13 +131,13 @@ export function OnboardingWizard({ isOpen, onComplete }: OnboardingWizardProps) 
                 Benvenuto su BetterGrocy!
             </h2>
             <p className="text-slate-600 mb-8 max-w-sm mx-auto leading-relaxed">
-                Organizza la tua dispensa, riduci gli sprechi e scopri cosa cucinare con ciò che hai già a casa.
+                Organizza la tua dispensa, riduci gli sprechi e scopri cosa cucinare con cio che hai gia a casa.
             </p>
 
             <div className="space-y-3 mb-8">
                 <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
                     <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                        <span className="text-xl">📦</span>
+                        <span className="text-xl">ðŸ“¦</span>
                     </div>
                     <div className="text-left">
                         <p className="font-medium text-slate-800">Gestisci la dispensa</p>
@@ -146,16 +146,16 @@ export function OnboardingWizard({ isOpen, onComplete }: OnboardingWizardProps) 
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
                     <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
-                        <span className="text-xl">🍳</span>
+                        <span className="text-xl">ðŸ³</span>
                     </div>
                     <div className="text-left">
-                        <p className="font-medium text-slate-800">Suggerimenti intelligenti</p>
-                        <p className="text-sm text-slate-500">Ricette basate sui tuoi ingredienti</p>
+                        <p className="font-medium text-slate-800">Ricette semplici</p>
+                        <p className="text-sm text-slate-500">Idee per usare quello che hai</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
                     <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                        <span className="text-xl">🌱</span>
+                        <span className="text-xl">ðŸŒ±</span>
                     </div>
                     <div className="text-left">
                         <p className="font-medium text-slate-800">Zero sprechi</p>
@@ -186,7 +186,7 @@ export function OnboardingWizard({ isOpen, onComplete }: OnboardingWizardProps) 
                         La tua dispensa iniziale
                     </h2>
                     <p className="text-sm text-slate-500">
-                        Seleziona cosa hai già in casa
+                        Seleziona cosa hai gia in casa
                     </p>
                 </div>
                 <div className="text-right">
@@ -255,20 +255,9 @@ export function OnboardingWizard({ isOpen, onComplete }: OnboardingWizardProps) 
                 Ottimo lavoro!
             </h2>
             <p className="text-slate-600 mb-6 max-w-sm mx-auto leading-relaxed">
-                Hai aggiunto <span className="font-semibold text-primary">{selectedProducts.size}</span> prodotti alla tua dispensa. 
-                Ora sei pronto per scoprire le funzionalità di BetterGrocy!
+                Hai aggiunto <span className="font-semibold text-primary">{selectedProducts.size}</span> prodotti alla tua dispensa.
+                Ora puoi iniziare ad usare BetterGrocy!
             </p>
-
-            <div className="bg-slate-50 rounded-2xl p-4 mb-6">
-                <p className="text-sm text-slate-600 mb-2">Hai sbloccato:</p>
-                <div className="flex items-center justify-center gap-2">
-                    <span className="text-2xl">🎉</span>
-                    <span className="font-semibold text-slate-800">Badge "Primi Passi"</span>
-                </div>
-                <p className="text-xs text-slate-500 mt-1">
-                    +{selectedProducts.size * 5} punti guadagnati!
-                </p>
-            </div>
 
             <Button size="lg" className="w-full" onClick={handleComplete}>
                 Vai alla dashboard

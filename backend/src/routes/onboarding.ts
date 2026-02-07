@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import prisma from '../lib/prisma';
+import { updateProjections } from '../services/projections';
 
 // Tutorial products that are commonly found in homes
 const TUTORIAL_PRODUCTS = [
@@ -244,6 +245,9 @@ export async function onboardingRoutes(app: FastifyInstance) {
                     userId,
                 },
             });
+
+            // Keep projections in sync for tutorial stock
+            await updateProjections(householdId, product.id, stockLot.id, quantity, 'PURCHASE');
 
             createdProducts.push({
                 productId: product.id,

@@ -1,102 +1,31 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Html5Qrcode } from 'html5-qrcode';
-import { useScanProduct, useCreateProduct, usePurchase, useUnits, useLocations } from '../hooks/useApi';
-import { X, Check, Plus, Package, Search } from 'lucide-react';
-import { QuantityStepper } from '../components/ui/QuantityStepper';
-import { QuickDateChips } from '../components/ui/QuickDateChips';
-import { StorageSelector } from '../components/ui/StorageSelector';
+import { useScanProduct } from '../hooks/useApi';
+import { X, Search } from 'lucide-react';
 import { ScannerReticle } from '../components/ui/ScannerReticle';
 import { LastScannedDrawer } from '../components/ui/LastScannedDrawer';
 import type { ScanResult } from '../api/client';
 
-type ScanState = 'scanning' | 'found' | 'new' | 'adding' | 'manual';
-
-// Helper Component for Health & Sustainability Badges
-function HealthBadges({ nutriscore, novaGroup, ecoScore }: { nutriscore?: string, novaGroup?: number, ecoScore?: string }) {
-    if (!nutriscore && !novaGroup && !ecoScore) return null;
-
-    return (
-        <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100 dark:border-white/5">
-            {nutriscore && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-white/5 rounded-lg border border-gray-200 dark:border-white/5">
-                    <span className="text-[10px] font-bold text-gray-500 uppercase">Nutri</span>
-                    <span className={`text-xs font-black px-1.5 py-0.5 rounded ${nutriscore === 'A' ? 'bg-green-600' :
-                        nutriscore === 'B' ? 'bg-green-500' :
-                            nutriscore === 'C' ? 'bg-yellow-500' :
-                                nutriscore === 'D' ? 'bg-orange-500' :
-                                    nutriscore === 'E' ? 'bg-red-500' : 'bg-gray-400'
-                        } text-white`}>
-                        {nutriscore}
-                    </span>
-                </div>
-            )}
-            {novaGroup && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-white/5 rounded-lg border border-gray-200 dark:border-white/5">
-                    <span className="text-[10px] font-bold text-gray-500 uppercase">Nova</span>
-                    <span className={`text-xs font-black px-1.5 py-0.5 rounded ${novaGroup === 1 ? 'bg-green-600' :
-                        novaGroup === 2 ? 'bg-yellow-500' :
-                            novaGroup === 3 ? 'bg-orange-500' :
-                                novaGroup === 4 ? 'bg-red-500' : 'bg-gray-400'
-                        } text-white`}>
-                        {novaGroup}
-                    </span>
-                </div>
-            )}
-            {ecoScore && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-white/5 rounded-lg border border-gray-200 dark:border-white/5">
-                    <span className="text-[10px] font-bold text-gray-500 uppercase">Eco</span>
-                    <span className={`text-xs font-black px-1.5 py-0.5 rounded ${ecoScore === 'A' ? 'bg-green-600' :
-                        ecoScore === 'B' ? 'bg-green-500' :
-                            ecoScore === 'C' ? 'bg-yellow-500' :
-                                ecoScore === 'D' ? 'bg-orange-500' :
-                                    ecoScore === 'E' ? 'bg-red-500' : 'bg-gray-400'
-                        } text-white`}>
-                        {ecoScore}
-                    </span>
-                </div>
-            )}
-        </div>
-    );
-}
+type ScanState = 'scanning' | 'processing' | 'manual';
 
 export default function ScanPage() {
     const navigate = useNavigate();
     const [scanState, setScanState] = useState<ScanState>('scanning');
-    const [scanResult, setScanResult] = useState<ScanResult | null>(null);
-    const [barcode, setBarcode] = useState('');
     const [manualBarcode, setManualBarcode] = useState('');
-    const [lastScannedItems, setLastScannedItems] = useState<ScanResult[]>([]);
+    const [lastScannedItems, setLastScannedItems] = useState<ScanResult[]>(() => {
+        try {
+            const stored = sessionStorage.getItem('bettergrocy_last_scanned');
+            return stored ? JSON.parse(stored) : [];
+        } catch {
+            return [];
+        }
+    });
     const [error, setError] = useState('');
     const [cameraAvailable, setCameraAvailable] = useState(true);
 
     const scannerRef = useRef<Html5Qrcode | null>(null);
     const scanMutation = useScanProduct();
-    const createProductMutation = useCreateProduct();
-    const purchaseMutation = usePurchase();
-    const { data: unitsData } = useUnits();
-    const { data: locationsData } = useLocations();
-
-    // New product form
-    const [newProduct, setNewProduct] = useState({
-        name: '',
-        description: '',
-        imageUrl: '',
-        stockUnitId: '',
-        purchaseUnitId: '',
-        defaultLocationId: '',
-        nutriscore: '',
-        novaGroup: undefined as number | undefined,
-        ecoScore: '',
-        categories: [] as string[],
-    });
-
-    // Purchase form
-    const [purchaseData, setPurchaseData] = useState({
-        quantity: 1,
-        bestBeforeDate: '',
-        locationId: '',
-    });
 
     useEffect(() => {
         // Safety check for element
@@ -153,163 +82,41 @@ export default function ScanPage() {
         };
     }, []);
 
-    // Fix stale closure issue: Scanner callback runs in a closure created on mount.
-    // We rely on state updates to trigger effects rather than doing it all in the callback.
     const handleBarcodeScan = async (code: string) => {
-        setBarcode(code);
         setError('');
+        setScanState('processing');
 
         try {
             const result = await scanMutation.mutateAsync(code);
-            setScanResult(result);
             setLastScannedItems(prev => {
                 if (prev[0]?.barcode === code) return prev;
-                return [result, ...prev].slice(0, 5);
+                const next = [result, ...prev].slice(0, 5);
+                sessionStorage.setItem('bettergrocy_last_scanned', JSON.stringify(next));
+                return next;
             });
 
-            if (result.status === 'KNOWN') {
-                setScanState('found');
-                // Location setting moved to useEffect
-            } else if (result.status === 'SUGGESTED') {
-                setScanState('new');
-                setNewProduct({
-                    name: result.suggestion?.name || '',
-                    description: '',
-                    imageUrl: result.suggestion?.imageUrl || '',
-                    stockUnitId: unitsData?.units.find((u) => u.name === 'Pezzi')?.id || '',
-                    purchaseUnitId: unitsData?.units.find((u) => u.name === 'Pezzi')?.id || '',
-                    defaultLocationId: locationsData?.locations[0]?.id || '',
-                    nutriscore: result.suggestion?.nutriscore || '',
-                    novaGroup: result.suggestion?.novaGroup,
-                    ecoScore: result.suggestion?.ecoScore || '',
-                    categories: result.suggestion?.categories || [],
-                });
-            } else {
-                setScanState('new');
-                setNewProduct({
-                    name: '',
-                    description: '',
-                    imageUrl: '',
-                    stockUnitId: '',
-                    purchaseUnitId: '',
-                    defaultLocationId: '',
-                    nutriscore: '',
-                    novaGroup: undefined,
-                    ecoScore: '',
-                    categories: []
-                });
-            }
+            navigate('/scan/add', { state: { scanResult: result, barcode: code } });
         } catch (err: any) {
             if (err.message?.includes('404') || err.message?.includes('not found')) {
-                setScanState('new');
-                setScanResult({ status: 'UNKNOWN', barcode: code });
-                setNewProduct({
-                    name: '',
-                    description: '',
-                    imageUrl: '',
-                    stockUnitId: '',
-                    purchaseUnitId: '',
-                    defaultLocationId: '',
-                    nutriscore: '',
-                    novaGroup: undefined,
-                    ecoScore: '',
-                    categories: []
+                const fallback: ScanResult = { status: 'UNKNOWN', barcode: code };
+                setLastScannedItems(prev => {
+                    const next = [fallback, ...prev].slice(0, 5);
+                    sessionStorage.setItem('bettergrocy_last_scanned', JSON.stringify(next));
+                    return next;
                 });
+                navigate('/scan/add', { state: { scanResult: fallback, barcode: code } });
             } else {
-                console.error("Scan Error:", err);
+                console.error('Scan Error:', err);
                 setError(err.message || 'Scan failed');
+                setScanState('scanning');
             }
-        }
-    };
-
-    // Effect to set default location when product is found or locations load
-    useEffect(() => {
-        if (scanState === 'found' && scanResult?.product && !purchaseData.locationId) {
-            const defaultLoc = scanResult.product.defaultLocation?.id || locationsData?.locations[0]?.id || '';
-            if (defaultLoc) {
-                setPurchaseData(prev => ({ ...prev, locationId: defaultLoc }));
-            }
-        } else if (scanState === 'new' && !newProduct.defaultLocationId && locationsData?.locations.length) {
-            setNewProduct(prev => ({ ...prev, defaultLocationId: locationsData.locations[0].id }));
-        }
-    }, [scanState, scanResult, locationsData, purchaseData.locationId, newProduct.defaultLocationId]);
-
-    const handleCreateProduct = async () => {
-        if (!newProduct.name || !newProduct.stockUnitId) {
-            setError('Compila nome e unità');
-            return;
-        }
-
-        try {
-            const result = await createProductMutation.mutateAsync({
-                name: newProduct.name,
-                description: newProduct.description,
-                imageUrl: newProduct.imageUrl || undefined,
-                stockUnitId: newProduct.stockUnitId,
-                purchaseUnitId: newProduct.purchaseUnitId || newProduct.stockUnitId,
-                defaultLocationId: newProduct.defaultLocationId,
-                barcode: barcode,
-                nutriscore: newProduct.nutriscore || undefined,
-                novaGroup: newProduct.novaGroup,
-                ecoScore: newProduct.ecoScore || undefined,
-                categories: newProduct.categories,
-            });
-
-            // Switch to purchase state
-            setScanResult({ status: 'KNOWN', product: result.product });
-            setScanState('found');
-            setPurchaseData((prev) => ({
-                ...prev,
-                locationId: newProduct.defaultLocationId,
-            }));
-        } catch (err: any) {
-            console.error("Create Product Error:", err);
-            setError(err.message || 'Create failed');
-        }
-    };
-
-    const handlePurchase = async () => {
-        if (!scanResult?.product) return;
-
-        setScanState('adding');
-        try {
-            await purchaseMutation.mutateAsync({
-                productId: scanResult.product.id,
-                quantity: purchaseData.quantity,
-                locationId: purchaseData.locationId || undefined,
-                bestBeforeDate: purchaseData.bestBeforeDate
-                    ? new Date(purchaseData.bestBeforeDate).toISOString()
-                    : undefined,
-            });
-
-            // Reset and continue scanning
-            resetScanner();
-        } catch (err: any) {
-            console.error("Purchase Error:", err);
-            setError(err.message || 'Purchase failed');
-            setScanState('found');
         }
     };
 
     const resetScanner = () => {
         setScanState('scanning');
-        setScanResult(null);
-        setBarcode('');
         setManualBarcode('');
         setError('');
-        setPurchaseData({ quantity: 1, bestBeforeDate: '', locationId: '' });
-        setNewProduct({
-            name: '',
-            description: '',
-            imageUrl: '',
-            stockUnitId: '',
-            purchaseUnitId: '',
-            defaultLocationId: '',
-            nutriscore: '',
-            novaGroup: undefined,
-            ecoScore: '',
-            categories: []
-        });
 
         if (scannerRef.current) {
             try {
@@ -384,7 +191,7 @@ export default function ScanPage() {
 
                         {/* Center Reticle */}
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                            <ScannerReticle isScanning={!scanResult} />
+                            <ScannerReticle isScanning />
                         </div>
                     </div>
 
@@ -393,9 +200,7 @@ export default function ScanPage() {
                         <LastScannedDrawer
                             scannedItems={lastScannedItems}
                             onItemClick={(item) => {
-                                setScanResult(item);
-                                if (item.status === 'KNOWN') setScanState('found');
-                                else setScanState('new');
+                                navigate('/scan/add', { state: { scanResult: item, barcode: item.barcode } });
                             }}
                             onFinish={() => navigate('/')}
                         />
@@ -403,193 +208,15 @@ export default function ScanPage() {
                 </>
             )}
 
-            {/* 3. Product Found Modal */}
-            {scanState === 'found' && scanResult?.product && (
-                <div className="absolute inset-x-0 bottom-0 z-20 bg-background-light dark:bg-zinc-900 rounded-t-3xl p-6 shadow-2xl animate-slide-up">
-                    <div className="w-12 h-1.5 bg-gray-300 dark:bg-zinc-700 rounded-full mx-auto mb-6" />
-
-                    <div className="flex flex-col gap-6 mb-6">
-                        <div className="flex items-start gap-4">
-                            {scanResult.product.imageUrl ? (
-                                <img src={scanResult.product.imageUrl} alt={scanResult.product.name} className="w-20 h-20 rounded-2xl object-cover bg-white shadow-sm" />
-                            ) : (
-                                <div className="w-20 h-20 rounded-2xl bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-gray-400">
-                                    <Package size={32} />
-                                </div>
-                            )}
-                            <div className="flex-1">
-                                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight mb-1">{scanResult.product.name}</h2>
-                                <p className="text-sm text-gray-500">
-                                    Stock: {scanResult.product.currentStock?.quantity ?? 0} {scanResult.product.stockUnit.abbreviation}
-                                </p>
-                            </div>
-                            <button onClick={resetScanner} className="p-2 -mr-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                                <X size={24} />
-                            </button>
-                        </div>
-
-                        {/* Health Badges for KNOWN product */}
-                        <HealthBadges
-                            nutriscore={scanResult.product.nutriscore}
-                            novaGroup={scanResult.product.novaGroup}
-                            ecoScore={scanResult.product.ecoScore}
-                        />
-                    </div>
-
-                    <div className="mb-6">
-                        <QuantityStepper
-                            value={purchaseData.quantity}
-                            onChange={(val) => setPurchaseData(p => ({ ...p, quantity: val }))}
-                            unitLabel={scanResult.product.purchaseUnit.abbreviation}
-                            className="w-full"
-                        />
-                    </div>
-
-                    <div className="mb-6">
-                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 block">Scadenza (Opzionale)</label>
-                        <div className="space-y-3">
-                            <QuickDateChips
-                                onDateSelect={(date) => setPurchaseData(p => ({ ...p, bestBeforeDate: date }))}
-                            />
-                            <input
-                                type="date"
-                                className="w-full bg-gray-50 dark:bg-zinc-800/50 border border-transparent focus:border-primary focus:ring-0 rounded-xl px-4 py-3 text-gray-900 dark:text-white transition-all font-display"
-                                value={purchaseData.bestBeforeDate}
-                                onChange={(e) => setPurchaseData(p => ({ ...p, bestBeforeDate: e.target.value }))}
-                            />
-                        </div>
-                    </div>
-
-                    <div className="mb-6">
-                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 block">Posizione</label>
-                        {locationsData && (
-                            <StorageSelector
-                                locations={locationsData.locations}
-                                selectedLocationId={purchaseData.locationId}
-                                onSelect={(id) => setPurchaseData(p => ({ ...p, locationId: id }))}
-                            />
-                        )}
-                    </div>
-
-                    <button
-                        onClick={handlePurchase}
-                        disabled={purchaseMutation.isPending}
-                        className="w-full bg-primary text-white font-bold py-4 rounded-xl shadow-lg shadow-primary/30 active:scale-95 transition-all flex items-center justify-center gap-2"
-                    >
-                        {purchaseMutation.isPending ? (
-                            <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        ) : (
-                            <>
-                                <Plus size={24} />
-                                <span>Aggiungi al carico</span>
-                            </>
-                        )}
-                    </button>
-                    <div className="h-6" />
-                </div>
-            )}
-
-            {/* 4. New Product Modal */}
-            {scanState === 'new' && (
-                <div className="absolute inset-x-0 bottom-0 z-20 bg-background-light dark:bg-zinc-900 rounded-t-3xl p-6 shadow-2xl animate-slide-up max-h-[85vh] overflow-y-auto">
-                    <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Nuovo Prodotto</h2>
-                        <button onClick={resetScanner} className="p-2 bg-gray-100 dark:bg-zinc-800 rounded-full text-gray-500">
-                            <X size={20} />
-                        </button>
-                    </div>
-
-                    {scanResult?.suggestion && (
-                        <div className="bg-white dark:bg-zinc-800/80 border border-gray-100 dark:border-white/5 rounded-[1.5rem] p-4 mb-6 shadow-sm flex flex-col gap-4">
-                            <div className="flex items-center gap-4">
-                                {scanResult.suggestion.imageUrl && (
-                                    <img src={scanResult.suggestion.imageUrl} alt="" className="w-16 h-16 rounded-xl object-cover shadow-sm bg-white" />
-                                )}
-                                <div className="flex-1">
-                                    <p className="text-[10px] text-primary font-black uppercase tracking-widest mb-1">Dati OpenFoodFacts</p>
-                                    <p className="font-bold text-gray-900 dark:text-gray-100 leading-tight text-lg">{scanResult.suggestion.name}</p>
-                                    {scanResult.suggestion.brand && <p className="text-xs text-text-muted font-medium">{scanResult.suggestion.brand}</p>}
-                                </div>
-                            </div>
-
-                            {/* Health & Sustainability Badges for SUGGESTION */}
-                            <HealthBadges
-                                nutriscore={scanResult.suggestion.nutriscore}
-                                novaGroup={scanResult.suggestion.novaGroup}
-                                ecoScore={scanResult.suggestion.ecoScore}
-                            />
-                        </div>
-                    )}
-
-                    <div className="space-y-6 mb-6">
-                        <div>
-                            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Nome</label>
-                            <input
-                                type="text"
-                                className="w-full bg-gray-50 dark:bg-zinc-800/50 border border-transparent focus:border-primary focus:ring-0 rounded-xl px-4 py-4 text-lg font-medium text-gray-900 dark:text-white placeholder-gray-400"
-                                placeholder="Es. Pasta Barilla"
-                                value={newProduct.name}
-                                onChange={(e) => setNewProduct(p => ({ ...p, name: e.target.value }))}
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Unità</label>
-                            <div className="grid grid-cols-3 gap-2">
-                                {unitsData?.units.slice(0, 6).map(u => (
-                                    <button
-                                        key={u.id}
-                                        onClick={() => setNewProduct(p => ({ ...p, stockUnitId: u.id, purchaseUnitId: u.id }))}
-                                        className={`px-3 py-3 rounded-xl text-sm font-medium transition-all ${newProduct.stockUnitId === u.id
-                                            ? 'bg-primary text-white shadow-lg shadow-primary/25 ring-2 ring-primary ring-offset-2 ring-offset-background'
-                                            : 'bg-gray-50 dark:bg-zinc-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-700'
-                                            }`}
-                                    >
-                                        {u.name}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Posizione Default</label>
-                            {locationsData && (
-                                <StorageSelector
-                                    locations={locationsData.locations}
-                                    selectedLocationId={newProduct.defaultLocationId}
-                                    onSelect={(id) => setNewProduct(p => ({ ...p, defaultLocationId: id }))}
-                                />
-                            )}
-                        </div>
-                    </div>
-
-                    <button
-                        onClick={handleCreateProduct}
-                        disabled={createProductMutation.isPending}
-                        className="w-full bg-primary text-white font-bold py-4 rounded-xl shadow-lg shadow-primary/30 active:scale-95 transition-all flex items-center justify-center gap-2"
-                    >
-                        {createProductMutation.isPending ? (
-                            <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        ) : (
-                            <>
-                                <Check size={20} />
-                                <span>Salva e Continua</span>
-                            </>
-                        )}
-                    </button>
-                    <div className="h-6" />
-                </div>
-            )}
-
-            {/* 5. Adding State Overlay */}
-            {scanState === 'adding' && (
+            {/* 3. Processing State Overlay */}
+            {scanState === 'processing' && (
                 <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center text-white">
                     <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-4" />
-                    <p className="font-medium text-lg">Aggiunta in corso...</p>
+                    <p className="font-medium text-lg">Elaborazione in corso...</p>
                 </div>
             )}
 
-            {/* 6. Manual Input Modal */}
+            {/* 4. Manual Input Modal */}
             {scanState === 'manual' && (
                 <div className="absolute inset-0 z-20 bg-black/90 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn">
                     <div className="w-full max-w-sm">

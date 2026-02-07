@@ -1,8 +1,7 @@
-import { useAuth, clearAuth, useCategoriesWithMappings, useProducts } from '../hooks/useApi';
-import { User as UserIcon, LogOut, Settings, Users, Moon, Sun, ChevronRight } from 'lucide-react';
+import { useAuth, clearAuth } from '../hooks/useApi';
+import { User as UserIcon, LogOut, Moon, Sun, ChevronRight } from 'lucide-react';
 import { useState, ReactNode } from 'react';
 import { Button } from '../components/ui/Button';
-import MappingManagementModal from '../components/modals/MappingManagementModal';
 
 interface SettingItem {
     label: string;
@@ -21,23 +20,6 @@ interface SettingSection {
 export default function SettingsPage() {
     const { user, household } = useAuth();
     const [isDarkMode, setIsDarkMode] = useState(document.documentElement.classList.contains('dark'));
-    const [showMappingModal, setShowMappingModal] = useState(false);
-
-    // Get mapping stats
-    const { data: categoriesData } = useCategoriesWithMappings();
-    const { data: productsData } = useProducts();
-
-    const categories = categoriesData?.categories ?? [];
-    const products = productsData?.products ?? [];
-    const totalProducts = products.length;
-    const mappedProducts = categories.reduce((sum, cat) => sum + cat.products.length, 0);
-    const mappingPercentage = totalProducts > 0 ? Math.round((mappedProducts / totalProducts) * 100) : 0;
-
-    const getBadgeColor = (percentage: number) => {
-        if (percentage > 80) return 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400';
-        if (percentage > 50) return 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400';
-        return 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400';
-    };
 
     const handleLogout = () => {
         clearAuth();
@@ -61,41 +43,23 @@ export default function SettingsPage() {
             title: 'Account',
             icon: <UserIcon className="text-secondary" />,
             items: [
-                { label: 'Informazioni Profilo', value: user?.email || '', sublabel: 'Email e dati personali' },
-                { label: 'Sicurezza', sublabel: 'Cambia password e autenticazione' }
+                { label: 'Email', value: user?.email || '', sublabel: 'Email associata al profilo' },
             ]
         },
         {
             title: 'Household',
-            icon: <Users className="text-primary" />,
+            icon: <UserIcon className="text-primary" />,
             items: [
-                { label: 'Nome Nucleo', value: household?.name || 'Mio Nucleo', sublabel: 'Gestisci il nome della tua dispensa' },
-                { label: 'Membri', value: '1 Membro', sublabel: 'Invita e gestisci conviventi' }
+                { label: 'Nome Nucleo', value: household?.name || 'Mio Nucleo', sublabel: 'Nome della tua dispensa' },
             ]
         },
         {
-            title: 'Gestione',
-            icon: <Settings className="text-gray-400" />,
+            title: 'Preferenze',
+            icon: <UserIcon className="text-gray-400" />,
             items: [
                 {
-                    label: 'Categorie Prodotti',
-                    sublabel: `${mappingPercentage}% prodotti mappati`,
-                    value: `${mappedProducts}/${totalProducts}`,
-                    onClick: () => setShowMappingModal(true),
-                    action: (
-                        <div className={`px-2 py-1 rounded-full text-xs font-bold ${getBadgeColor(mappingPercentage)}`}>
-                            {mappingPercentage}%
-                        </div>
-                    )
-                },
-                {
-                    label: 'Notifiche',
-                    sublabel: 'Avvisi scadenza e scorte',
-                    action: <div className="w-10 h-6 bg-primary/20 rounded-full relative"><div className="absolute right-1 top-1 w-4 h-4 bg-primary rounded-full"></div></div>
-                },
-                {
                     label: 'Tema',
-                    sublabel: isDarkMode ? 'Modalità Scura' : 'Modalità Chiara',
+                    sublabel: isDarkMode ? 'Modalita Scura' : 'Modalita Chiara',
                     onClick: toggleTheme,
                     action: isDarkMode ? <Moon size={20} className="text-primary" /> : <Sun size={20} className="text-yellow-500" />
                 }
@@ -108,7 +72,7 @@ export default function SettingsPage() {
             {/* Header */}
             <div className="flex flex-col gap-2">
                 <h1 className="text-4xl font-black tracking-tight text-gray-900 dark:text-white">Impostazioni</h1>
-                <p className="text-text-muted">Gestisci il tuo profilo e le preferenze dell'applicazione</p>
+                <p className="text-text-muted">Gestisci il tuo profilo e le preferenze principali</p>
             </div>
 
             {/* Profile Hero */}
@@ -119,14 +83,6 @@ export default function SettingsPage() {
                 <div className="flex flex-col items-center md:items-start text-center md:text-left flex-1">
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{user?.name || 'Utente'}</h2>
                     <p className="text-text-muted mb-4">{user?.email}</p>
-                    <div className="flex gap-3">
-                        <span className="bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-primary/20">
-                            PRO MEMBER
-                        </span>
-                        <span className="bg-success/10 text-success text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-success/20">
-                            ACTIVE
-                        </span>
-                    </div>
                 </div>
                 <Button variant="outline" className="border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white" onClick={handleLogout}>
                     <LogOut className="mr-2 h-4 w-4" />
@@ -162,18 +118,6 @@ export default function SettingsPage() {
                     </div>
                 ))}
             </div>
-
-            {/* Footer */}
-            <div className="mt-4 text-center">
-                <p className="text-xs text-text-muted">BetterGrocy v1.0.0 • Made with ❤️ for your Kitchen</p>
-            </div>
-
-            {/* Mapping Management Modal */}
-            {showMappingModal && (
-                <MappingManagementModal
-                    onClose={() => setShowMappingModal(false)}
-                />
-            )}
         </div>
     );
 }

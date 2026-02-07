@@ -39,11 +39,11 @@ export function TutorialProductsPanel() {
                         </p>
                     </div>
                 </div>
-                <div className="text-right">
-                    <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded-full">
-                        +5 punti cad.
-                    </span>
-                </div>
+            <div className="text-right">
+                <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-1 rounded-full">
+                    Da completare
+                </span>
+            </div>
             </div>
 
             <div className="space-y-3 mb-4">
@@ -66,11 +66,9 @@ export function TutorialProductsPanel() {
             <div className="bg-white/60 rounded-xl p-3 flex items-start gap-3">
                 <Sparkles className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
                 <div className="text-sm text-slate-600">
-                    <p className="font-medium text-slate-700 mb-1">Bonus speciale!</p>
+                    <p className="font-medium text-slate-700 mb-1">Completa i dettagli</p>
                     <p>
-                        Se completi tutti i prodotti tutorial, ricevi{' '}
-                        <span className="font-semibold text-primary">+25 punti bonus</span> e il badge{' '}
-                        <span className="font-semibold">"Organizzato"</span>.
+                        Imposta una scadenza e una posizione per ogni prodotto tutorial.
                     </p>
                 </div>
             </div>

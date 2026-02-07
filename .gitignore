@@ -5,3 +5,5 @@ backend/node_modules
 # other
 frontend/.bun
 backend/.bun
+
+.opencode

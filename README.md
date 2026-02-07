@@ -2,7 +2,6 @@
 
 Inventory-aware cooking operations.
 
-
 ## Index
 
 - [Core Concepts](#core-concepts)
@@ -11,7 +10,7 @@ Inventory-aware cooking operations.
 - [Quick Start (Development)](#quick-start-development)
 - [Domain Separation](#domain-separation)
 - [Key Features](#key-features)
-- [Screenshots and GIFs](#screenshots-and-gifs)
+- [Screenshots and GIFs](#screenshots)
 - [Non-Goals](#non-goals)
 - [Project Status](#project-status)
 - [Documentation](#documentation)
@@ -117,4 +116,3 @@ Contributions are welcome. Priorities:
 - Improve the golden flow
 - Reduce cognitive load
 - Keep decision logic explainable
-

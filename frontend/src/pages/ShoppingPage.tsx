@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { ShoppingCart, Plus, Trash2, Check } from 'lucide-react';
 import {
   useShoppingList,
-  useAddShoppingItem,
   useRemoveShoppingItem,
   useToggleShoppingPurchased,
   useClearPurchasedItems,
@@ -27,8 +26,6 @@ export default function ShoppingPage() {
   const [editingItem, setEditingItem] = useState<ShoppingListItem | null>(null);
 
   const allItems = data?.all ?? [];
-
-  const addMutation = useAddShoppingItem();
 
   const handleTogglePurchased = async (item: ShoppingListItem) => {
     try {

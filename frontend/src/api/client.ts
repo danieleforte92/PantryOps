@@ -389,11 +389,7 @@ export interface Recipe {
 
 export interface RecipeIngredient {
     id: string;
-    // LEGACY: product-based ingredient
-    productId?: string;
-    product?: Product;
-    // NEW: category-based ingredient
-    ingredientCategoryId?: string;
+    ingredientCategoryId: string;
     ingredientCategory?: IngredientCategory;
     quantity: number;
     unit: Unit;

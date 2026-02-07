@@ -1,21 +1,46 @@
 # PantryOps
 
-Modern home inventory management system - a simplified, user-friendly alternative to Grocy.
+Inventory-aware cooking operations.
 
-## Quick Start
+PantryOps is an open-source, decision-driven home inventory system. It connects recipes, pantry stock, and expiration dates to help you cook with what you already have before it expires.
+
+## Core Concepts
+
+- Recipes are universal: they use ingredient categories, not specific SKUs.
+- Cooking is a stock operation: inventory is consumed and tracked through transactions.
+- Preview before commit: you can inspect the consumption plan before applying changes.
+- FEFO-first logic: items expiring sooner are consumed first.
+
+## Golden Flow
+
+1. Add products to pantry stock with expiration dates.
+2. Create recipes with ingredient categories.
+3. Get daily cooking suggestions based on real stock.
+4. Preview the consumption plan.
+5. Confirm cooking and update stock with traceability.
+
+## Tech Stack
+
+- Backend: Fastify + Prisma + TypeScript
+- Frontend: Vite + React + TypeScript
+- Database: PostgreSQL
+- Runtime: Bun
+
+## Quick Start (Development)
 
 ### Prerequisites
-- [Bun](https://bun.sh/) runtime
-- [Docker](https://www.docker.com/) for PostgreSQL
 
-### Development
+- Bun
+- Docker (for PostgreSQL)
 
-1. Start the database:
+### 1. Start database
+
 ```bash
 docker-compose up -d
 ```
 
-2. Setup backend:
+### 2. Start backend
+
 ```bash
 cd backend
 bun install
@@ -24,23 +49,48 @@ bun run db:seed
 bun run dev
 ```
 
-3. Setup frontend:
+### 3. Start frontend
+
 ```bash
 cd frontend
 bun install
 bun run dev
 ```
 
-## Architecture
+## Domain Separation
 
-- **Backend**: Fastify + Prisma + TypeScript
-- **Frontend**: Vite + React + TypeScript
-- **Database**: PostgreSQL
-- **Runtime**: Bun
+- `recipes`: static recipe metadata
+- `stock`: physical inventory state (lots, balances, transactions)
+- `suggestions`: decision support and preview logic
+- `queries`: read-only aggregations
 
-## Key Features (MVP)
+## Key Features
 
-- 📷 Barcode scanning with OpenFoodFacts integration
-- 📦 Stock management with FEFO (First Expired, First Out)
-- ⏰ Expiring items alerts
-- 🛒 Auto-generated shopping list
+- Stock management with expiration dates
+- FEFO-based consumption
+- Cooking preview before commit
+- Auditable stock transactions
+- Stock-driven shopping suggestions
+- Barcode scanning via OpenFoodFacts
+
+## Non-Goals
+
+- Generic recipe collection app
+- Calorie/nutrition tracker
+- Polished consumer product focus over domain correctness
+
+## Project Status
+
+Active development. Core inventory and recipe flows are stable, with ongoing UX iteration.
+
+## Documentation
+
+- `pantryops_project_documentation_versioned.md`
+
+## Contributing
+
+Contributions are welcome. Priorities:
+
+- Improve the golden flow
+- Reduce cognitive load
+- Keep decision logic explainable

@@ -433,29 +433,32 @@ export interface ProductMapping {
 }
 
 export interface RecipePreviewItem {
-    productId: string;
-    productName: string;
+    ingredientCategoryId: string;
+    ingredientName: string;
     required: number;
     available: number;
     missing: number;
     unit: string;
+    status: 'covered' | 'partial' | 'missing';
     suggestedProducts?: SuggestedProduct[];
 }
 
 export interface RecipePreview {
     ingredients: RecipePreviewItem[];
     canCook: boolean;
+    coverageStatus: 'covered' | 'partial' | 'missing';
+    explanation: string;
 }
 
 // Step 5: Suggested products for category-based cooking
 export interface SuggestedProduct {
     productId: string;
     productName: string;
-    productImage: string | null;
-    priority: number;
-    availableQuantity: number;
-    stockUnitName: string;
     suggestedQuantity: number;
+    stockUnitName: string;
+    bestBeforeDate: string | null;
+    daysToExpiry: number | null;
+    reason: string;
 }
 
 export interface ProductSelection {

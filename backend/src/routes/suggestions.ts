@@ -101,11 +101,14 @@ export async function suggestionRoutes(app: FastifyInstance) {
     fastify.get('/recipes/:id/preview', {
         schema: {
             params: z.object({ id: z.string().uuid() }),
-            querystring: z.object({ householdId: z.string().uuid() })
+            querystring: z.object({
+                householdId: z.string().uuid(),
+                servings: z.coerce.number().positive().optional()
+            })
         }
     }, async (request, reply) => {
         const { id } = request.params;
-        const { householdId } = request.query;
+        const { householdId, servings } = request.query;
 
         const recipe = await prisma.recipe.findUnique({
             where: { id },
@@ -136,52 +139,71 @@ export async function suggestionRoutes(app: FastifyInstance) {
             });
         }
 
+        const baseServings = (recipe as any).servings || 1;
+        const factor = servings ? (servings / baseServings) : 1;
+        const now = new Date();
+
         const ingredients = await Promise.all(recipe.ingredients.map(async (ing: any) => {
-            const required = ing.quantity;
-            let available = 0;
-            let name = 'Unknown Item';
-            let id = ing.id;
-            let suggestedProducts;
+            const required = ing.quantity * factor;
 
             // Category based - Use Consumption Engine for consistent logic
             const consumptionPlan = await computeConsumption(
                 ing.ingredientCategoryId,
-                ing.quantity,
+                required,
                 householdId,
                 'preview'
             );
-            
-            available = consumptionPlan.totalAvailable;
-            name = ing.ingredientCategory.name;
-            id = ing.ingredientCategoryId;
 
             // Convert consumption plan to suggested products format
-            suggestedProducts = consumptionPlan.productAllocations.map(alloc => ({
+            const suggestedProducts = consumptionPlan.productAllocations.map(alloc => {
+                const bestBeforeDate = alloc.lots
+                    .map(lot => lot.bestBeforeDate)
+                    .filter((date): date is Date => Boolean(date))
+                    .sort((a, b) => a.getTime() - b.getTime())[0] || null;
+
+                const daysToExpiry = bestBeforeDate
+                    ? Math.ceil((bestBeforeDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+                    : null;
+
+                return {
                 productId: alloc.productId,
                 productName: alloc.productName,
                 suggestedQuantity: alloc.quantity,
-                availableQuantity: alloc.quantity, // Already capped by available
-                priority: 1, // Default, could be fetched if needed
                 stockUnitName: ing.unit.abbreviation,
-                productImage: null // Could be fetched if needed
-            }));
+                bestBeforeDate: bestBeforeDate ? bestBeforeDate.toISOString() : null,
+                daysToExpiry,
+                reason: 'FEFO: scadenza più vicina'
+                };
+            });
 
+            const available = consumptionPlan.totalAvailable;
             const missing = Math.max(0, required - available);
+            const status = missing === 0 ? 'covered' : available > 0 ? 'partial' : 'missing';
 
             return {
-                productId: id, // Usiamo ID categoria o prodotto come identificatore
-                productName: name,
+                ingredientCategoryId: ing.ingredientCategoryId,
+                ingredientName: ing.ingredientCategory.name,
                 required,
                 available,
                 missing,
                 unit: ing.unit.abbreviation,
+                status,
                 suggestedProducts
             };
         }));
 
+        const canCook = ingredients.every((i: any) => i.status === 'covered');
+        const coverageStatus = canCook
+            ? 'covered'
+            : ingredients.every((i: any) => i.status === 'missing')
+                ? 'missing'
+                : 'partial';
+
         return {
             ingredients,
-            canCook: ingredients.every((i: any) => i.missing === 0)
+            canCook,
+            coverageStatus,
+            explanation: 'Usiamo prima i prodotti con scadenza più vicina.'
         };
     });
 }

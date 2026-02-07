@@ -309,23 +309,25 @@ export async function stockRoutes(app: FastifyInstance) {
                     lots: lotAllocations
                 });
 
-            } else if (ing.ingredientCategoryId) {
-                // NEW: Category based
-                if (productSelections && productSelections.length > 0) {
-                    // USER SELECTION: Use provided selections
-                    const categorySelections = productSelections.filter(s => s.categoryId === ing.ingredientCategoryId);
-                    const totalSelected = categorySelections.reduce((sum, s) => sum + s.quantity, 0);
+                } else if (ing.ingredientCategoryId) {
+                    // NEW: Category based
+                    if (productSelections && productSelections.length > 0) {
+                        // USER SELECTION: Use provided selections
+                        const categorySelections = productSelections.filter(s => s.categoryId === ing.ingredientCategoryId);
+                        const totalSelected = categorySelections.reduce((sum, s) => sum + s.quantity, 0);
 
-                    if (totalSelected < required) {
-                        return reply.status(400).send({
-                            error: 'INSUFFICIENT_SELECTION',
-                            category: ing.ingredientCategory?.name,
-                            required,
-                            selected: totalSelected
-                        });
-                    }
+                        if (totalSelected < required) {
+                            return reply.status(400).send({
+                                error: 'STOCK_INSUFFICIENT',
+                                ingredientCategoryId: ing.ingredientCategoryId,
+                                ingredientName: ing.ingredientCategory?.name,
+                                required,
+                                available: totalSelected,
+                                missing: required - totalSelected
+                            });
+                        }
 
-                    for (const sel of categorySelections) {
+                        for (const sel of categorySelections) {
                         // For each selected product, get FEFO lots
                         const lots = await prisma.stockLotBalance.findMany({
                             where: {
@@ -341,17 +343,28 @@ export async function stockRoutes(app: FastifyInstance) {
 
                         let remaining = sel.quantity;
                         const lotAllocations = [];
-                        for (const lot of lots) {
-                            if (remaining <= 0) break;
-                            const consumeAmount = Math.min(lot.remainingQuantity, remaining);
-                            lotAllocations.push({ lotId: lot.stockLotId, amount: consumeAmount });
-                            remaining -= consumeAmount;
-                        }
+                            for (const lot of lots) {
+                                if (remaining <= 0) break;
+                                const consumeAmount = Math.min(lot.remainingQuantity, remaining);
+                                lotAllocations.push({ lotId: lot.stockLotId, amount: consumeAmount });
+                                remaining -= consumeAmount;
+                            }
 
-                        allocationPlan.push({
-                            productId: sel.productId,
-                            categoryId: ing.ingredientCategoryId,
-                            required: sel.quantity,
+                            if (remaining > 0) {
+                                return reply.status(400).send({
+                                    error: 'STOCK_INSUFFICIENT',
+                                    ingredientCategoryId: ing.ingredientCategoryId,
+                                    ingredientName: ing.ingredientCategory?.name,
+                                    required: sel.quantity,
+                                    available: sel.quantity - remaining,
+                                    missing: remaining
+                                });
+                            }
+
+                            allocationPlan.push({
+                                productId: sel.productId,
+                                categoryId: ing.ingredientCategoryId,
+                                required: sel.quantity,
                             lots: lotAllocations
                         });
                     }
@@ -368,10 +381,12 @@ export async function stockRoutes(app: FastifyInstance) {
                     const validation = validateConsumptionPlan(consumptionPlan, required);
                     if (!validation.valid) {
                         return reply.status(400).send({
-                            error: validation.error,
-                            category: ing.ingredientCategory?.name,
+                            error: 'STOCK_INSUFFICIENT',
+                            ingredientCategoryId: ing.ingredientCategoryId,
+                            ingredientName: ing.ingredientCategory?.name,
                             required,
-                            available: consumptionPlan.totalAvailable
+                            available: consumptionPlan.totalAvailable,
+                            missing: Math.max(0, required - consumptionPlan.totalAvailable)
                         });
                     }
 
@@ -395,9 +410,11 @@ export async function stockRoutes(app: FastifyInstance) {
             if (!plan.canFulfill) {
                 return reply.status(400).send({
                     error: 'STOCK_INSUFFICIENT',
-                    category: plan.categoryName,
+                    ingredientCategoryId: auto.categoryId,
+                    ingredientName: plan.categoryName,
                     required: auto.required,
-                    available: plan.totalAvailable
+                    available: plan.totalAvailable,
+                    missing: Math.max(0, auto.required - plan.totalAvailable)
                 });
             }
         }

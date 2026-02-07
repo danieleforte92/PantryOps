@@ -282,8 +282,23 @@ export function useCookRecipe() {
             queryClient.invalidateQueries({ queryKey: ['expiring'] });
             queryClient.invalidateQueries({ queryKey: ['low-stock'] });
             queryClient.invalidateQueries({ queryKey: ['today-suggestions'] });
+            queryClient.invalidateQueries({ queryKey: ['recipe-preview'] });
         },
     });
+}
+
+export function usePrefetchRecipePreview() {
+    const queryClient = useQueryClient();
+    const { household } = useAuth();
+
+    return (recipeId: string, servings?: number) => {
+        if (!household?.id || !recipeId) return Promise.resolve();
+
+        return queryClient.prefetchQuery({
+            queryKey: ['recipe-preview', recipeId, servings, household.id],
+            queryFn: () => recipesApi.preview(recipeId, household.id, servings),
+        });
+    };
 }
 
 // Create Recipe Mutation
@@ -292,7 +307,7 @@ export function useCreateRecipe() {
     const { household } = useAuth();
 
     return useMutation({
-        mutationFn: (data: { name: string; description?: string; servings: number; ingredients: { ingredientCategoryId: string; quantity: number; unitId?: string }[] }) =>
+        mutationFn: (data: { name: string; description?: string; servings: number; userId: string; ingredients: { ingredientCategoryId: string; quantity: number; unitId?: string }[] }) =>
             recipesApi.create({ ...data, householdId: household.id }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['recipes'] });

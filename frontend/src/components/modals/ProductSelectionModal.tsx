@@ -30,7 +30,7 @@ export default function ProductSelectionModal({
     recipeIngredients.forEach((ing) => {
       if (ing.suggestedProducts && ing.suggestedProducts.length > 0) {
         ing.suggestedProducts.forEach((sp) => {
-          const key = `${ing.productId}-${sp.productId}`;
+          const key = `${ing.ingredientCategoryId}-${sp.productId}`;
           initialSelections[key] = {
             productId: sp.productId,
             quantity: sp.suggestedQuantity,
@@ -50,13 +50,13 @@ export default function ProductSelectionModal({
       if (ing.suggestedProducts && ing.suggestedProducts.length > 0) {
         let total = 0;
         ing.suggestedProducts.forEach((sp) => {
-          const key = `${ing.productId}-${sp.productId}`;
+          const key = `${ing.ingredientCategoryId}-${sp.productId}`;
           const sel = selections[key];
           if (sel) {
             total += sel.quantity;
           }
         });
-        totals.set(ing.productId, total);
+        totals.set(ing.ingredientCategoryId, total);
       }
     });
     
@@ -67,7 +67,7 @@ export default function ProductSelectionModal({
   const isValid = useMemo(() => {
     return recipeIngredients.every((ing) => {
       if (ing.suggestedProducts && ing.suggestedProducts.length > 0) {
-        const total = categoryTotals.get(ing.productId) || 0;
+        const total = categoryTotals.get(ing.ingredientCategoryId) || 0;
         return total >= ing.required;
       }
       return true;
@@ -96,7 +96,8 @@ export default function ProductSelectionModal({
     
     setSelections((prev) => {
       const current = prev[key]?.quantity || 0;
-      const newQuantity = Math.max(0, Math.min(current + delta, sp.availableQuantity));
+      const maxSelectable = Math.max(sp.suggestedQuantity, current);
+      const newQuantity = Math.max(0, Math.min(current + delta, maxSelectable));
       
       return {
         ...prev,
@@ -115,11 +116,11 @@ export default function ProductSelectionModal({
     recipeIngredients.forEach((ing) => {
       if (ing.suggestedProducts && ing.suggestedProducts.length > 0) {
         ing.suggestedProducts.forEach((sp) => {
-          const key = `${ing.productId}-${sp.productId}`;
+          const key = `${ing.ingredientCategoryId}-${sp.productId}`;
           const sel = selections[key];
           if (sel && sel.quantity > 0) {
             finalSelections.push({
-              categoryId: ing.productId,
+              categoryId: ing.ingredientCategoryId,
               productId: sp.productId,
               quantity: sel.quantity,
             });
@@ -175,15 +176,15 @@ export default function ProductSelectionModal({
 
           {/* Category sections - Accordion */}
           {categoryIngredients.map((ing) => {
-            const total = categoryTotals.get(ing.productId) || 0;
+            const total = categoryTotals.get(ing.ingredientCategoryId) || 0;
             const isCategoryValid = total >= ing.required;
-            const isExpanded = expandedCategories.has(ing.productId);
+            const isExpanded = expandedCategories.has(ing.ingredientCategoryId);
             
             return (
-              <div key={ing.productId} className="border-b border-gray-100 dark:border-white/5">
+              <div key={ing.ingredientCategoryId} className="border-b border-gray-100 dark:border-white/5">
                 {/* Accordion Header */}
                 <button
-                  onClick={() => toggleCategory(ing.productId)}
+                  onClick={() => toggleCategory(ing.ingredientCategoryId)}
                   className="w-full p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
                 >
                   <div className="flex items-center gap-3">
@@ -191,7 +192,7 @@ export default function ProductSelectionModal({
                       {ing.suggestedProducts?.length || 0}
                     </div>
                     <div className="text-left">
-                      <h3 className="font-bold text-gray-900 dark:text-white">{ing.productName}</h3>
+                      <h3 className="font-bold text-gray-900 dark:text-white">{ing.ingredientName}</h3>
                       <p className="text-sm text-text-muted">
                         Richiesto: {ing.required} {ing.unit}
                       </p>
@@ -213,8 +214,9 @@ export default function ProductSelectionModal({
                 {isExpanded && (
                   <div className="px-4 pb-4 space-y-2">
                     {ing.suggestedProducts?.map((sp) => {
-                      const key = `${ing.productId}-${sp.productId}`;
+                      const key = `${ing.ingredientCategoryId}-${sp.productId}`;
                       const currentQuantity = selections[key]?.quantity || 0;
+                      const maxSelectable = Math.max(sp.suggestedQuantity, currentQuantity);
                       
                       return (
                         <div
@@ -222,31 +224,20 @@ export default function ProductSelectionModal({
                           className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-zinc-800/50 border border-gray-100 dark:border-white/5"
                         >
                           <div className="flex items-center gap-3">
-                            {sp.productImage ? (
-                              <img
-                                src={sp.productImage}
-                                alt={sp.productName}
-                                className="w-10 h-10 rounded-lg object-cover bg-white"
-                              />
-                            ) : (
-                              <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-zinc-700 flex items-center justify-center">
-                                <Package size={18} className="text-gray-400" />
-                              </div>
-                            )}
+                            <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-zinc-700 flex items-center justify-center">
+                              <Package size={18} className="text-gray-400" />
+                            </div>
                             <div>
                               <p className="font-bold text-sm text-gray-900 dark:text-white">{sp.productName}</p>
                               <div className="flex items-center gap-2 text-xs text-text-muted">
-                                <span>Disponibile: {sp.availableQuantity} {sp.stockUnitName}</span>
-                                <span className="px-2 py-0.5 rounded-full bg-gray-200 dark:bg-zinc-600 font-bold">
-                                  P{sp.priority}
-                                </span>
+                                <span>Suggerito: {sp.suggestedQuantity} {sp.stockUnitName}</span>
                               </div>
                             </div>
                           </div>
 
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={() => updateQuantity(ing.productId, sp.productId, -10)}
+                              onClick={() => updateQuantity(ing.ingredientCategoryId, sp.productId, -10)}
                               className="h-8 w-8 rounded-lg bg-gray-100 dark:bg-zinc-700 hover:bg-gray-200 dark:hover:bg-zinc-600 transition-colors font-bold"
                               disabled={currentQuantity <= 0}
                             >
@@ -256,9 +247,9 @@ export default function ProductSelectionModal({
                               {currentQuantity}
                             </span>
                             <button
-                              onClick={() => updateQuantity(ing.productId, sp.productId, 10)}
+                              onClick={() => updateQuantity(ing.ingredientCategoryId, sp.productId, 10)}
                               className="h-8 w-8 rounded-lg bg-gray-100 dark:bg-zinc-700 hover:bg-gray-200 dark:hover:bg-zinc-600 transition-colors font-bold"
-                              disabled={currentQuantity >= sp.availableQuantity}
+                              disabled={currentQuantity >= maxSelectable}
                             >
                               +
                             </button>

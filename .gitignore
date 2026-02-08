@@ -8,6 +8,9 @@ frontend/dist
 backend/.bun
 backend/dist
 
+.opencode/**
+.agents/**
+
 # env files
 .env
 .env.local

@@ -70,6 +70,32 @@ bun install
 bun run dev
 ```
 
+### 4. Optional: Seed a screenshot-ready demo household
+
+From `backend/`:
+
+```bash
+bun run db:seed:screenshots
+```
+
+This script is non-destructive and idempotent for the demo target:
+
+- reuses a deterministic demo account/household if already present
+- creates and enriches data for fuller screenshots (stock, recipes, shopping states)
+- avoids mass deletes and does not touch other households
+
+Default demo credentials:
+
+- email: `demo.screenshots@pantryops.local`
+- password: `DemoScreenshots123!`
+
+Optional flags:
+
+- `--size=compact|medium|large` (default: `medium`)
+- `--household-name="PantryOps Demo Screenshots"`
+- `--email=...`
+- `--password=...`
+
 ## Domain Separation
 
 - `recipes`: static recipe metadata
@@ -104,6 +130,16 @@ Key compliance points:
 ## Screenshots
 
 Current UI snapshots:
+
+<p>
+  <img src="docs/media/pantryOps_01_mobile.png" alt="PantryOps mobile first 1" width="32%" />
+  <img src="docs/media/pantryOps_02_mobile.png" alt="PantryOps mobile first 2" width="32%" />
+  <img src="docs/media/pantryOps_03_mobile.png" alt="PantryOps mobile first 3" width="32%" />
+  <img src="docs/media/pantryOps_04_mobile.png" alt="PantryOps mobile first 4" width="32%" />
+  <img src="docs/media/pantryOps_05_mobile.png" alt="PantryOps mobile first 5" width="32%" />
+  <img src="docs/media/pantryOps_06_mobile.png" alt="PantryOps mobile first 6" width="32%" />
+  <img src="docs/media/pantryOps_07_mobile.png" alt="PantryOps mobile first 7" width="32%" />
+</p>
 
 ![PantryOps screenshot 1](docs/media/pantryOps_01.png)
 ![PantryOps screenshot 2](docs/media/pantryOps_02.png)

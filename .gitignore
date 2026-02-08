@@ -13,5 +13,3 @@ backend/dist
 .env.local
 
 
-.opencode/**
-.agents/**

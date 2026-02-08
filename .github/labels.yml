@@ -1,0 +1,67 @@
+- name: bug
+  color: d73a4a
+  description: Something is not working
+
+- name: enhancement
+  color: a2eeef
+  description: New feature or request
+
+- name: documentation
+  color: 0075ca
+  description: Documentation updates
+
+- name: good first issue
+  color: 7057ff
+  description: Good for first-time contributors
+
+- name: help wanted
+  color: 008672
+  description: Extra attention is needed
+
+- name: question
+  color: d876e3
+  description: Further information is requested
+
+- name: needs-triage
+  color: fbca04
+  description: Needs maintainer triage
+
+- name: priority:high
+  color: b60205
+  description: High-priority work
+
+- name: priority:medium
+  color: d93f0b
+  description: Medium-priority work
+
+- name: priority:low
+  color: 0e8a16
+  description: Low-priority work
+
+- name: domain:stock
+  color: 1d76db
+  description: Inventory and stock operations
+
+- name: domain:recipes
+  color: 5319e7
+  description: Recipes and ingredient categories
+
+- name: domain:suggestions
+  color: 0052cc
+  description: Suggestion engine and FEFO decisions
+
+- name: domain:queries
+  color: 0366d6
+  description: Read models and aggregations
+
+- name: domain:frontend
+  color: c5def5
+  description: Frontend UI and UX
+
+- name: domain:backend
+  color: 006b75
+  description: Backend API and domain logic
+
+- name: security
+  color: ee0701
+  description: Security-related reports or hardening

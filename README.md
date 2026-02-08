@@ -16,6 +16,7 @@ Inventory-aware cooking operations.
 - [Project Status](#project-status)
 - [Documentation](#documentation)
 - [Contributing](#contributing)
+- [Security](#security)
 
 ## Core Concepts
 
@@ -52,7 +53,23 @@ Inventory-aware cooking operations.
 docker-compose up -d
 ```
 
-### 2. Start backend
+### 2. Configure backend environment
+
+Copy the template:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+PowerShell equivalent:
+
+```powershell
+Copy-Item backend/.env.example backend/.env
+```
+
+For production, use a strong and private value for `JWT_SECRET`.
+
+### 3. Start backend
 
 ```bash
 cd backend
@@ -62,7 +79,13 @@ bun run db:seed
 bun run dev
 ```
 
-### 3. Start frontend
+Backend health endpoint:
+
+```text
+http://localhost:3001/health
+```
+
+### 4. Start frontend
 
 ```bash
 cd frontend
@@ -70,7 +93,13 @@ bun install
 bun run dev
 ```
 
-### 4. Optional: Seed a screenshot-ready demo household
+Frontend dev URL:
+
+```text
+http://localhost:5173
+```
+
+### 5. Optional: Seed a screenshot-ready demo household
 
 From `backend/`:
 
@@ -154,18 +183,27 @@ Current UI snapshots:
 
 ## Project Status
 
-Active development. Core inventory and recipe flows are stable, with ongoing UX iteration.
+Early-stage open source project. Core inventory and recipe flows are stable, with ongoing UX iteration.
 
 ## Documentation
 
 - `pantryops_project_documentation_versioned.md`
 - `CHANGELOG.md`
 - `NOTICE.md`
+- `CONTRIBUTING.md`
+- `SECURITY.md`
+- `SUPPORT.md`
 
 ## Contributing
 
-Contributions are welcome. Priorities:
+Contributions are welcome. Start with `CONTRIBUTING.md`.
+
+Current priorities:
 
 - Improve the golden flow
 - Reduce cognitive load
 - Keep decision logic explainable
+
+## Security
+
+Please report vulnerabilities following `SECURITY.md`.

@@ -131,6 +131,16 @@ Key compliance points:
 
 Current UI snapshots:
 
+<p>
+  <img src="docs/media/pantryOps_01_mobile.png" alt="PantryOps mobile first 1" width="32%" />
+  <img src="docs/media/pantryOps_02_mobile.png" alt="PantryOps mobile first 2" width="32%" />
+  <img src="docs/media/pantryOps_03_mobile.png" alt="PantryOps mobile first 3" width="32%" />
+  <img src="docs/media/pantryOps_04_mobile.png" alt="PantryOps mobile first 4" width="32%" />
+  <img src="docs/media/pantryOps_05_mobile.png" alt="PantryOps mobile first 5" width="32%" />
+  <img src="docs/media/pantryOps_06_mobile.png" alt="PantryOps mobile first 6" width="32%" />
+  <img src="docs/media/pantryOps_07_mobile.png" alt="PantryOps mobile first 7" width="32%" />
+</p>
+
 ![PantryOps screenshot 1](docs/media/pantryOps_01.png)
 ![PantryOps screenshot 2](docs/media/pantryOps_02.png)
 ![PantryOps screenshot 3](docs/media/pantryOps_03.png)

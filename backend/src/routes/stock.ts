@@ -233,9 +233,6 @@ export async function stockRoutes(app: FastifyInstance) {
         const { id } = request.params;
         const { userId, servings, productSelections } = request.body;
 
-        const householdId = (await prisma.household.findFirst())?.id; // Mock auth
-        if (!householdId) return reply.status(400).send({ error: 'No household found' });
-
         const recipe = await prisma.recipe.findUnique({
             where: { id },
             include: {
@@ -251,6 +248,44 @@ export async function stockRoutes(app: FastifyInstance) {
         });
 
         if (!recipe) return reply.status(404).send({ error: 'Recipe not found' });
+
+        // Resolve household deterministically:
+        // 1) household-scoped recipes use their own household
+        // 2) global recipes fallback to user's first household
+        let householdId = recipe.householdId;
+        if (!householdId) {
+            const userHousehold = await prisma.householdUser.findFirst({
+                where: { userId },
+                select: { householdId: true },
+                orderBy: { role: 'asc' }, // ADMIN before MEMBER
+            });
+            householdId = userHousehold?.householdId ?? null;
+        }
+
+        if (!householdId) {
+            return reply.status(400).send({
+                error: 'HOUSEHOLD_NOT_FOUND',
+                message: 'No household available for this recipe cook operation',
+            });
+        }
+
+        // Ensure user belongs to the resolved household
+        const membership = await prisma.householdUser.findUnique({
+            where: {
+                householdId_userId: {
+                    householdId,
+                    userId,
+                },
+            },
+            select: { userId: true },
+        });
+
+        if (!membership) {
+            return reply.status(403).send({
+                error: 'HOUSEHOLD_FORBIDDEN',
+                message: 'User is not a member of the recipe household',
+            });
+        }
 
         const actualServings = (recipe as any).servings || 1;
         const factor = servings ? (servings / actualServings) : 1;

@@ -70,6 +70,32 @@ bun install
 bun run dev
 ```
 
+### 4. Optional: Seed a screenshot-ready demo household
+
+From `backend/`:
+
+```bash
+bun run db:seed:screenshots
+```
+
+This script is non-destructive and idempotent for the demo target:
+
+- reuses a deterministic demo account/household if already present
+- creates and enriches data for fuller screenshots (stock, recipes, shopping states)
+- avoids mass deletes and does not touch other households
+
+Default demo credentials:
+
+- email: `demo.screenshots@pantryops.local`
+- password: `DemoScreenshots123!`
+
+Optional flags:
+
+- `--size=compact|medium|large` (default: `medium`)
+- `--household-name="PantryOps Demo Screenshots"`
+- `--email=...`
+- `--password=...`
+
 ## Domain Separation
 
 - `recipes`: static recipe metadata

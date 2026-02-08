@@ -25,7 +25,13 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Run tests
-        run: bun test
+        shell: bash
+        run: |
+          if find . -type f \( -name "*.test.*" -o -name "*_test_*" -o -name "*.spec.*" -o -name "*_spec_*" \) | grep -q .; then
+            bun test
+          else
+            echo "No backend tests found. Skipping bun test."
+          fi
 
   frontend:
     runs-on: ubuntu-latest

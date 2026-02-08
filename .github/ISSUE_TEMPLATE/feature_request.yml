@@ -1,0 +1,47 @@
+name: Feature request
+description: Propose an improvement aligned with PantryOps goals.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please propose focused improvements that improve PantryOps core flow.
+
+  - type: input
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What user problem are you trying to solve?
+      placeholder: Users cannot easily...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe your proposed behavior and UX/API impact.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: List alternatives and tradeoffs.
+    validations:
+      required: false
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and impact
+      description: Explain if this affects stock, recipes, suggestions, or queries.
+      placeholder: |
+        - Domain: suggestions
+        - API changes: none
+        - UI changes: recipe detail modal
+    validations:
+      required: true

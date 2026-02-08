@@ -14,5 +14,11 @@ backend/dist
 # env files
 .env
 .env.local
+backend/.env
+frontend/.env
+backend/.env.*
+frontend/.env.*
+!backend/.env.example
+!frontend/.env.example
 
 

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Support Questions
+    url: https://github.com/danieleforte92/PantryOps/discussions
+    about: Ask usage and setup questions in GitHub Discussions.
+  - name: Security Reports
+    url: https://github.com/danieleforte92/PantryOps/security/advisories/new
+    about: Report vulnerabilities privately.
